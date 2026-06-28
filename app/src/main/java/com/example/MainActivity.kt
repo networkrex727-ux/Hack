@@ -139,9 +139,12 @@ fun WingoAppScreen() {
     // Main layout
     Box(modifier = Modifier.fillMaxSize()) {
         
-        // 1. WebView filling the screen
+        // 1. WebView filling the screen safely between status bar and navigation bar
         AndroidView(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding(),
             factory = { ctx ->
                 WebView(ctx).apply {
                     webViewInstance = this
@@ -328,38 +331,34 @@ fun WingoAppScreen() {
             }
         }
 
-        // 3. Logged-out Helper Badge (Provides nice onboarding state for users)
-        if (!effectiveIsLoggedIn) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.8f)),
-                shape = RoundedCornerShape(16.dp),
+        // 3. Floating Setup Button when Logged-out (Safe corner placement, no overlay on website tabs)
+        AnimatedVisibility(
+            visible = !effectiveIsLoggedIn,
+            enter = scaleIn() + fadeIn(),
+            exit = scaleOut() + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .navigationBarsPadding()
+                .padding(bottom = 80.dp, end = 20.dp) // Exact same corner alignment, zero website interference
+        ) {
+            FloatingActionButton(
+                onClick = {
+                    isSettingsMode = true
+                    showBottomSheet = true
+                },
+                containerColor = Color(0xFF1A1A1A),
+                contentColor = Color.White,
+                shape = CircleShape,
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .navigationBarsPadding()
-                    .padding(bottom = 24.dp)
-                    .clickable {
-                        isSettingsMode = true
-                        showBottomSheet = true
-                    }
+                    .size(56.dp)
+                    .border(2.dp, Color(0xFFFF6B00).copy(alpha = 0.8f), CircleShape)
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = "Help",
-                        tint = Color(0xFFFF6B00),
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Login to Website or Tap to Open Helper panel",
-                        color = Color.White,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Open Setup Panel",
+                    tint = Color(0xFFFF6B00),
+                    modifier = Modifier.size(28.dp)
+                )
             }
         }
 
