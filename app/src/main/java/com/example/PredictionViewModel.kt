@@ -13,6 +13,7 @@ import java.util.*
 class PredictionViewModel(application: Application) : AndroidViewModel(application) {
 
     private val context = getApplication<Application>().applicationContext
+    private val session = SessionManager(context)
 
     // State flows for Jetpack Compose UI
     private val _prediction = MutableStateFlow<PredictionData?>(null)
@@ -66,6 +67,7 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
             
             // 6. If hack is active, start prediction auto-refresh
             if (_hackActive.value) {
+                fetchPrediction(userId)
                 startAutoPrediction(userId)
             } else {
                 autoRefreshJob?.cancel()
@@ -76,16 +78,43 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     // --- Wingo 30-second period calculation ---
-    private fun updatePeriod() {
-        val now = System.currentTimeMillis() / 1000L  // Unix seconds
-        val secondsInDay = now % 86400
-        val periodNumber = secondsInDay / 30           // Every 30 seconds is a period
-        val secsInPeriod = (secondsInDay % 30).toInt()
+    fun updatePeriod() {
+        val now = System.currentTimeMillis() // current UTC epoch in ms
+        
+        // 1. Convert to IST (UTC + 5:30) which is standard for Wingo games
+        val istOffsetMs = 5.5 * 60 * 60 * 1000 // 19800000 ms
+        val istTimeMs = now + istOffsetMs.toLong()
+        
+        // 2. Incorporate time calibration offset (in seconds)
+        val calibratedIstTimeMs = istTimeMs + (session.timeOffset * 1000L)
+        val calibratedIstSeconds = calibratedIstTimeMs / 1000L
+        
+        val secondsInDay = calibratedIstSeconds % 86400
+        
+        // 3. 30-second period calculation (2880 periods per day)
+        val basePeriodNumber = (secondsInDay / 30) + 1 // period number of the day starting from 1
+        
+        // Apply period calibration offset
+        val finalPeriodNumber = (basePeriodNumber + session.periodOffset).toInt()
+        
+        val secsInPeriod = (calibratedIstSeconds % 30).toInt()
         val remaining = 30 - secsInPeriod
 
-        // Period ID format: YYYYMMDD + 4-digit number
-        val dateStr = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())
-        _currentPeriod.value = "$dateStr${periodNumber.toString().padStart(4, '0')}"
+        // 4. Period ID format: YYYYMMDD + 4-digit period number (e.g., 202606280123)
+        // Format date in IST timezone to avoid mismatch with local phone timezone
+        val sdf = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).apply {
+            timeZone = TimeZone.getTimeZone("GMT+5:30")
+        }
+        val dateStr = sdf.format(Date(now))
+        
+        // Ensure period number wraps around correctly (within 1 to 2880 for a 30s game)
+        val formattedPeriodNumber = when {
+            finalPeriodNumber <= 0 -> 2880 + (finalPeriodNumber % 2880)
+            finalPeriodNumber > 2880 -> (finalPeriodNumber - 1) % 2880 + 1
+            else -> finalPeriodNumber
+        }
+        
+        _currentPeriod.value = "$dateStr${formattedPeriodNumber.toString().padStart(4, '0')}"
         _timeLeft.value = remaining
     }
 
@@ -105,21 +134,13 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    // --- Auto-refresh prediction every period ---
+    // --- Auto-refresh prediction in real-time by polling the server ---
     private fun startAutoPrediction(userId: String) {
         autoRefreshJob?.cancel()
         autoRefreshJob = viewModelScope.launch(Dispatchers.IO) {
             while (isActive) {
                 fetchPrediction(userId)
-                
-                // Wait for the next period, dynamic delay
-                val tl = _timeLeft.value
-                val waitMs = if (tl > 4) {
-                    (tl - 2) * 1000L
-                } else {
-                    (tl + 28) * 1000L
-                }
-                delay(waitMs)
+                delay(2000L) // Poll every 2 seconds for absolute real-time accuracy
             }
         }
     }

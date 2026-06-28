@@ -79,6 +79,8 @@ fun WingoAppScreen() {
     // Configuration / URL States
     var websiteUrlState by remember { mutableStateOf(session.websiteUrl) }
     var baseUrlState by remember { mutableStateOf(session.baseUrl) }
+    var periodOffsetState by remember { mutableStateOf(session.periodOffset) }
+    var timeOffsetState by remember { mutableStateOf(session.timeOffset) }
 
     // Session States
     var isLoggedIn by remember { mutableStateOf(session.isLoggedIn) }
@@ -469,6 +471,141 @@ fun WingoAppScreen() {
                             modifier = Modifier.fillMaxWidth()
                         )
 
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // --- REAL-TIME CALIBRATION PANEL ---
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.05f)),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(
+                                    text = "🎯 Period & Timer Calibration",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFFFB74D),
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
+
+                                // Period Calibration Row
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text("Period Offset", fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Medium)
+                                        Text(
+                                            text = "Current: ${if (periodOffsetState >= 0) "+$periodOffsetState" else periodOffsetState}",
+                                            fontSize = 10.sp,
+                                            color = Color.LightGray
+                                        )
+                                    }
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Button(
+                                            onClick = {
+                                                periodOffsetState--
+                                                session.periodOffset = periodOffsetState
+                                                viewModel.updatePeriod()
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF6B00)),
+                                            contentPadding = PaddingValues(horizontal = 8.dp),
+                                            modifier = Modifier.height(28.dp)
+                                        ) {
+                                            Text("-1", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                        }
+                                        Button(
+                                            onClick = {
+                                                periodOffsetState = 0
+                                                session.periodOffset = 0
+                                                viewModel.updatePeriod()
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color.Gray.copy(alpha = 0.3f)),
+                                            contentPadding = PaddingValues(horizontal = 6.dp),
+                                            modifier = Modifier.height(28.dp)
+                                        ) {
+                                            Text("Reset", fontSize = 10.sp, color = Color.White)
+                                        }
+                                        Button(
+                                            onClick = {
+                                                periodOffsetState++
+                                                session.periodOffset = periodOffsetState
+                                                viewModel.updatePeriod()
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF6B00)),
+                                            contentPadding = PaddingValues(horizontal = 8.dp),
+                                            modifier = Modifier.height(28.dp)
+                                        ) {
+                                            Text("+1", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                // Timer Calibration Row
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text("Timer Offset (Seconds)", fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Medium)
+                                        Text(
+                                            text = "Current: ${if (timeOffsetState >= 0) "+${timeOffsetState}s" else "${timeOffsetState}s"}",
+                                            fontSize = 10.sp,
+                                            color = Color.LightGray
+                                        )
+                                    }
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Button(
+                                            onClick = {
+                                                timeOffsetState--
+                                                session.timeOffset = timeOffsetState
+                                                viewModel.updatePeriod()
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF6B00)),
+                                            contentPadding = PaddingValues(horizontal = 6.dp),
+                                            modifier = Modifier.height(28.dp)
+                                        ) {
+                                            Text("-1s", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                        }
+                                        Button(
+                                            onClick = {
+                                                timeOffsetState = 0
+                                                session.timeOffset = 0
+                                                viewModel.updatePeriod()
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color.Gray.copy(alpha = 0.3f)),
+                                            contentPadding = PaddingValues(horizontal = 6.dp),
+                                            modifier = Modifier.height(28.dp)
+                                        ) {
+                                            Text("Reset", fontSize = 10.sp, color = Color.White)
+                                        }
+                                        Button(
+                                            onClick = {
+                                                timeOffsetState++
+                                                session.timeOffset = timeOffsetState
+                                                viewModel.updatePeriod()
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF6B00)),
+                                            contentPadding = PaddingValues(horizontal = 6.dp),
+                                            modifier = Modifier.height(28.dp)
+                                        ) {
+                                            Text("+1s", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         Spacer(modifier = Modifier.height(16.dp))
 
                         // Save Button
@@ -493,8 +630,13 @@ fun WingoAppScreen() {
                             onClick = {
                                 websiteUrlState = SessionManager.DEFAULT_WEBSITE_URL
                                 baseUrlState = SessionManager.DEFAULT_BASE_URL
+                                periodOffsetState = 0
+                                timeOffsetState = 0
                                 session.websiteUrl = SessionManager.DEFAULT_WEBSITE_URL
                                 session.baseUrl = SessionManager.DEFAULT_BASE_URL
+                                session.periodOffset = 0
+                                session.timeOffset = 0
+                                viewModel.updatePeriod()
                                 Toast.makeText(context, "Settings Reset to Defaults", Toast.LENGTH_SHORT).show()
                                 isSettingsMode = false
                                 webViewInstance?.loadUrl(websiteUrlState)
@@ -648,70 +790,102 @@ fun WingoAppScreen() {
 
                                     Spacer(modifier = Modifier.height(12.dp))
 
-                                    // Render number inside colorful circle
-                                    val predictedNumber = prediction?.number ?: 7
-                                    val predictedColorStr = prediction?.color?.lowercase() ?: "red"
-                                    val predictedSizeStr = prediction?.size?.lowercase() ?: "big"
-
-                                    val bgGradient = when (predictedColorStr) {
-                                        "green" -> Brush.radialGradient(listOf(Color(0xFF81C784), Color(0xFF2E7D32)))
-                                        "red" -> Brush.radialGradient(listOf(Color(0xFFE57373), Color(0xFFC62828)))
-                                        "violet" -> Brush.radialGradient(listOf(Color(0xFFBA68C8), Color(0xFF6A1B9A)))
-                                        else -> Brush.radialGradient(listOf(Color(0xFFFFB74D), Color(0xFFE65100)))
-                                    }
-
-                                    Box(
-                                        contentAlignment = Alignment.Center,
-                                        modifier = Modifier
-                                            .size(100.dp)
-                                            .clip(CircleShape)
-                                            .background(bgGradient)
-                                            .border(2.dp, Color.White, CircleShape)
-                                    ) {
-                                        Text(
-                                            text = if (prediction != null) predictedNumber.toString() else "?",
-                                            fontSize = 48.sp,
-                                            fontWeight = FontWeight.Black,
-                                            color = Color.White
-                                        )
-                                    }
-
-                                    Spacer(modifier = Modifier.height(16.dp))
-
-                                    // Display attributes (Color and Size labels)
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.Center,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        val colorDisplay = when (predictedColorStr) {
-                                            "green" -> "🟢 GREEN"
-                                            "red" -> "🔴 RED"
-                                            "violet" -> "🟣 VIOLET"
-                                            else -> "⚪ MIXED"
-                                        }
-                                        val textColor = when (predictedColorStr) {
-                                            "green" -> Color(0xFF4CAF50)
-                                            "red" -> Color(0xFFF44336)
-                                            "violet" -> Color(0xFFBA68C8)
-                                            else -> Color.White
+                                    if (prediction == null) {
+                                        // Genuine Loading state representation
+                                        Box(
+                                            contentAlignment = Alignment.Center,
+                                            modifier = Modifier
+                                                .size(100.dp)
+                                                .clip(CircleShape)
+                                                .background(Brush.radialGradient(listOf(Color(0xFF424242), Color(0xFF212121))))
+                                                .border(2.dp, Color.Gray.copy(alpha = 0.5f), CircleShape)
+                                        ) {
+                                            CircularProgressIndicator(
+                                                color = Color(0xFFFF6B00),
+                                                strokeWidth = 3.dp,
+                                                modifier = Modifier.size(40.dp)
+                                            )
                                         }
 
-                                        Text(
-                                            text = colorDisplay,
-                                            fontSize = 16.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = textColor
-                                        )
+                                        Spacer(modifier = Modifier.height(16.dp))
 
-                                        Spacer(modifier = Modifier.width(20.dp))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.Center,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "⏳ WAITING FOR SERVER PREDICTION...",
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color.Gray
+                                            )
+                                        }
+                                    } else {
+                                        val predictedNumber = prediction!!.number
+                                        val predictedColorStr = prediction!!.color.lowercase()
+                                        val predictedSizeStr = prediction!!.size.lowercase()
 
-                                        Text(
-                                            text = "SIZE: ${predictedSizeStr.uppercase()}",
-                                            fontSize = 16.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color(0xFFFF6B00)
-                                        )
+                                        val bgGradient = when (predictedColorStr) {
+                                            "green" -> Brush.radialGradient(listOf(Color(0xFF81C784), Color(0xFF2E7D32)))
+                                            "red" -> Brush.radialGradient(listOf(Color(0xFFE57373), Color(0xFFC62828)))
+                                            "violet" -> Brush.radialGradient(listOf(Color(0xFFBA68C8), Color(0xFF6A1B9A)))
+                                            else -> Brush.radialGradient(listOf(Color(0xFFFFB74D), Color(0xFFE65100)))
+                                        }
+
+                                        Box(
+                                            contentAlignment = Alignment.Center,
+                                            modifier = Modifier
+                                                .size(100.dp)
+                                                .clip(CircleShape)
+                                                .background(bgGradient)
+                                                .border(2.dp, Color.White, CircleShape)
+                                        ) {
+                                            Text(
+                                                text = predictedNumber.toString(),
+                                                fontSize = 48.sp,
+                                                fontWeight = FontWeight.Black,
+                                                color = Color.White
+                                            )
+                                        }
+
+                                        Spacer(modifier = Modifier.height(16.dp))
+
+                                        // Display attributes (Color and Size labels)
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.Center,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            val colorDisplay = when (predictedColorStr) {
+                                                "green" -> "🟢 GREEN"
+                                                "red" -> "🔴 RED"
+                                                "violet" -> "🟣 VIOLET"
+                                                else -> "⚪ MIXED"
+                                            }
+                                            val textColor = when (predictedColorStr) {
+                                                "green" -> Color(0xFF4CAF50)
+                                                "red" -> Color(0xFFF44336)
+                                                "violet" -> Color(0xFFBA68C8)
+                                                else -> Color.White
+                                            }
+
+                                            Text(
+                                                text = colorDisplay,
+                                                fontSize = 16.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = textColor
+                                            )
+
+                                            Spacer(modifier = Modifier.width(20.dp))
+
+                                            Text(
+                                                text = "SIZE: ${predictedSizeStr.uppercase()}",
+                                                fontSize = 16.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFFFF6B00)
+                                            )
+                                        }
                                     }
                                 }
                             }

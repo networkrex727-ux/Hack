@@ -16,9 +16,11 @@ class SessionManager(context: Context) {
         const val KEY_BALANCE = "balance"
         const val KEY_WEBSITE_URL = "website_url"
         const val KEY_BASE_URL = "base_url"
+        const val KEY_PERIOD_OFFSET = "period_offset"
+        const val KEY_TIME_OFFSET = "time_offset"
         
-        const val DEFAULT_WEBSITE_URL = "http://yaarwins.xyz/"
-        const val DEFAULT_BASE_URL = "http://yaarwins.xyz/admin90/"
+        const val DEFAULT_WEBSITE_URL = "https://yaarwins.xyz/"
+        const val DEFAULT_BASE_URL = "https://yaarwins.xyz/admin90/"
     }
 
     var userId: String
@@ -44,6 +46,14 @@ class SessionManager(context: Context) {
     var baseUrl: String
         get() = prefs.getString(KEY_BASE_URL, DEFAULT_BASE_URL) ?: DEFAULT_BASE_URL
         set(value) = prefs.edit().putString(KEY_BASE_URL, value).apply()
+
+    var periodOffset: Int
+        get() = prefs.getInt(KEY_PERIOD_OFFSET, 0)
+        set(value) = prefs.edit().putInt(KEY_PERIOD_OFFSET, value).apply()
+
+    var timeOffset: Int
+        get() = prefs.getInt(KEY_TIME_OFFSET, 0)
+        set(value) = prefs.edit().putInt(KEY_TIME_OFFSET, value).apply()
 
     fun clear() = prefs.edit().clear().apply()
 }
