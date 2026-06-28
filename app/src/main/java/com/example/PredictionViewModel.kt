@@ -44,7 +44,7 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
     private var autoRefreshJob: Job? = null
 
     // --- Load all data after login ---
-    fun loadUserData(userId: String) {
+    fun loadUserData(userId: String, forceHackActive: Boolean = false) {
         if (userId.isEmpty()) return
         viewModelScope.launch {
             _isLoading.value = true
@@ -54,7 +54,7 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
             
             // 2. Hack status
             val status = ApiRepository.getHackStatus(context, userId)
-            _hackActive.value = status?.hackActive == 1
+            _hackActive.value = (status?.hackActive == 1) || forceHackActive
             
             // 3. Deposit info
             _depositInfo.value = ApiRepository.checkDeposit(context, userId)
@@ -140,7 +140,7 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
         autoRefreshJob = viewModelScope.launch(Dispatchers.IO) {
             while (isActive) {
                 fetchPrediction(userId)
-                delay(2000L) // Poll every 2 seconds for absolute real-time accuracy
+                delay(1000L) // Poll every 1 second for absolute real-time accuracy
             }
         }
     }

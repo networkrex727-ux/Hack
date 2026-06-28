@@ -124,7 +124,7 @@ fun WingoAppScreen() {
     LaunchedEffect(userId, forceHackActive, bypassLogin) {
         if (effectiveIsLoggedIn) {
             val effectiveId = if (userId.isEmpty()) "test_user_777" else userId
-            viewModel.loadUserData(effectiveId)
+            viewModel.loadUserData(effectiveId, forceHackActive)
         }
     }
 
@@ -150,8 +150,8 @@ fun WingoAppScreen() {
                         javaScriptEnabled = true
                         domStorageEnabled = true
                         databaseEnabled = true
-                        useWideViewPort = true
-                        loadWithOverviewMode = true
+                        useWideViewPort = false
+                        loadWithOverviewMode = false
                         mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                         cacheMode = WebSettings.LOAD_DEFAULT
                     }
@@ -375,8 +375,9 @@ fun WingoAppScreen() {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .navigationBarsPadding()
                         .padding(horizontal = 20.dp)
-                        .padding(bottom = 40.dp) // extra bottom padding for gestures
+                        .padding(bottom = 24.dp)
                         .verticalScroll(rememberScrollState())
                 ) {
                     // Header Row
@@ -470,141 +471,6 @@ fun WingoAppScreen() {
                             ),
                             modifier = Modifier.fillMaxWidth()
                         )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        // --- REAL-TIME CALIBRATION PANEL ---
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.05f)),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Text(
-                                    text = "🎯 Period & Timer Calibration",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFFFFB74D),
-                                    modifier = Modifier.padding(bottom = 8.dp)
-                                )
-
-                                // Period Calibration Row
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text("Period Offset", fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Medium)
-                                        Text(
-                                            text = "Current: ${if (periodOffsetState >= 0) "+$periodOffsetState" else periodOffsetState}",
-                                            fontSize = 10.sp,
-                                            color = Color.LightGray
-                                        )
-                                    }
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                    ) {
-                                        Button(
-                                            onClick = {
-                                                periodOffsetState--
-                                                session.periodOffset = periodOffsetState
-                                                viewModel.updatePeriod()
-                                            },
-                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF6B00)),
-                                            contentPadding = PaddingValues(horizontal = 8.dp),
-                                            modifier = Modifier.height(28.dp)
-                                        ) {
-                                            Text("-1", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
-                                        }
-                                        Button(
-                                            onClick = {
-                                                periodOffsetState = 0
-                                                session.periodOffset = 0
-                                                viewModel.updatePeriod()
-                                            },
-                                            colors = ButtonDefaults.buttonColors(containerColor = Color.Gray.copy(alpha = 0.3f)),
-                                            contentPadding = PaddingValues(horizontal = 6.dp),
-                                            modifier = Modifier.height(28.dp)
-                                        ) {
-                                            Text("Reset", fontSize = 10.sp, color = Color.White)
-                                        }
-                                        Button(
-                                            onClick = {
-                                                periodOffsetState++
-                                                session.periodOffset = periodOffsetState
-                                                viewModel.updatePeriod()
-                                            },
-                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF6B00)),
-                                            contentPadding = PaddingValues(horizontal = 8.dp),
-                                            modifier = Modifier.height(28.dp)
-                                        ) {
-                                            Text("+1", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
-                                        }
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.height(10.dp))
-
-                                // Timer Calibration Row
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text("Timer Offset (Seconds)", fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Medium)
-                                        Text(
-                                            text = "Current: ${if (timeOffsetState >= 0) "+${timeOffsetState}s" else "${timeOffsetState}s"}",
-                                            fontSize = 10.sp,
-                                            color = Color.LightGray
-                                        )
-                                    }
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                    ) {
-                                        Button(
-                                            onClick = {
-                                                timeOffsetState--
-                                                session.timeOffset = timeOffsetState
-                                                viewModel.updatePeriod()
-                                            },
-                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF6B00)),
-                                            contentPadding = PaddingValues(horizontal = 6.dp),
-                                            modifier = Modifier.height(28.dp)
-                                        ) {
-                                            Text("-1s", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
-                                        }
-                                        Button(
-                                            onClick = {
-                                                timeOffsetState = 0
-                                                session.timeOffset = 0
-                                                viewModel.updatePeriod()
-                                            },
-                                            colors = ButtonDefaults.buttonColors(containerColor = Color.Gray.copy(alpha = 0.3f)),
-                                            contentPadding = PaddingValues(horizontal = 6.dp),
-                                            modifier = Modifier.height(28.dp)
-                                        ) {
-                                            Text("Reset", fontSize = 10.sp, color = Color.White)
-                                        }
-                                        Button(
-                                            onClick = {
-                                                timeOffsetState++
-                                                session.timeOffset = timeOffsetState
-                                                viewModel.updatePeriod()
-                                            },
-                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF6B00)),
-                                            contentPadding = PaddingValues(horizontal = 6.dp),
-                                            modifier = Modifier.height(28.dp)
-                                        ) {
-                                            Text("+1s", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
-                                        }
-                                    }
-                                }
-                            }
-                        }
 
                         Spacer(modifier = Modifier.height(16.dp))
 
