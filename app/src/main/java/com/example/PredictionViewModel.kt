@@ -41,7 +41,7 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     private var countdownJob: Job? = null
-    private var autoRefreshJob: Job? = null
+    private var predictionPeriodId: String? = null
 
     // --- Load all data after login ---
     fun loadUserData(userId: String, forceHackActive: Boolean = false) {
@@ -62,15 +62,12 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
             // 4. Period calculation
             updatePeriod()
             
-            // 5. Start countdown
-            startCountdown()
+            // 5. Start countdown (handles fetching on new period changes)
+            startCountdown(userId)
             
-            // 6. If hack is active, start prediction auto-refresh
+            // 6. If hack is active, perform initial single fetch
             if (_hackActive.value) {
                 fetchPrediction(userId)
-                startAutoPrediction(userId)
-            } else {
-                autoRefreshJob?.cancel()
             }
             
             _isLoading.value = false
@@ -119,14 +116,30 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     // --- 30-second countdown ---
-    private fun startCountdown() {
+    private fun startCountdown(userId: String) {
         countdownJob?.cancel()
         countdownJob = viewModelScope.launch(Dispatchers.Default) {
+            var lastPeriodId = _currentPeriod.value
             while (isActive) {
                 updatePeriod()
+                val newPeriodId = _currentPeriod.value
+                
+                // If period ID changed, fetch the new prediction exactly ONCE!
+                if (newPeriodId.isNotEmpty() && newPeriodId != lastPeriodId) {
+                    lastPeriodId = newPeriodId
+                    if (_hackActive.value) {
+                        // Clear old prediction so UI shows loading state
+                        _prediction.value = null
+                        // Fetch the prediction exactly once in background IO thread
+                        launch(Dispatchers.IO) {
+                            fetchPrediction(userId)
+                        }
+                    }
+                }
+                
                 delay(1000L)
                 
-                // When timer reaches 0/1, wait briefly for API update, then refresh prediction if hack active
+                // When timer reaches 0/1, wait briefly for API update
                 if (_timeLeft.value <= 1) {
                     delay(800L) // short wait for new period to reflect on server
                 }
@@ -134,28 +147,30 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    // --- Auto-refresh prediction in real-time by polling the server ---
-    private fun startAutoPrediction(userId: String) {
-        autoRefreshJob?.cancel()
-        autoRefreshJob = viewModelScope.launch(Dispatchers.IO) {
-            while (isActive) {
-                fetchPrediction(userId)
-                delay(1000L) // Poll every 1 second for absolute real-time accuracy
-            }
-        }
-    }
-
     suspend fun fetchPrediction(userId: String) {
+        val currentPeriodId = _currentPeriod.value
+        if (currentPeriodId.isEmpty()) return
+
+        // If we already have a locked prediction for the current period, do not fetch a new one!
+        if (predictionPeriodId == currentPeriodId && _prediction.value != null) {
+            return
+        }
+
+        // If the period has changed, clear the old prediction to show the loading spinner for the new period
+        if (predictionPeriodId != currentPeriodId) {
+            _prediction.value = null
+        }
+
         val result = ApiRepository.getPrediction(context, userId)
         if (result != null) {
             _prediction.value = result
+            predictionPeriodId = currentPeriodId
             _errorMessage.value = null
         } else {
             // Check if hack expired
             val status = ApiRepository.getHackStatus(context, userId)
             if (status?.hackActive != 1) {
                 _hackActive.value = false
-                autoRefreshJob?.cancel()
                 _errorMessage.value = "Hack expired or inactive. Please activate."
             }
         }
@@ -168,7 +183,6 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
             val success = ApiRepository.activateHack(context, userId)
             if (success) {
                 _hackActive.value = true
-                startAutoPrediction(userId)
                 _errorMessage.value = null
                 // Refresh prediction immediately
                 fetchPrediction(userId)
@@ -196,6 +210,5 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
     override fun onCleared() {
         super.onCleared()
         countdownJob?.cancel()
-        autoRefreshJob?.cancel()
     }
 }
