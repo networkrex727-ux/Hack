@@ -16,6 +16,11 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -90,6 +95,15 @@ fun WingoAppScreen() {
     var showBottomSheet by remember { mutableStateOf(false) }
     var isSettingsMode by remember { mutableStateOf(false) }
 
+    // Floating Widget Drag States
+    var floatingYOffset by remember { mutableStateOf(0f) }
+    var floatingXOffset by remember { mutableStateOf(0f) }
+    var isMiniScreenExpanded by remember { mutableStateOf(false) }
+
+    // Developer Secret Mode
+    var developerTapCount by remember { mutableStateOf(0) }
+    var isDeveloperMode by remember { mutableStateOf(false) }
+
     // Bypasses / Overrides for Developer Testing
     var bypassLogin by remember { mutableStateOf(false) }
     var forceHackActive by remember { mutableStateOf(false) }
@@ -157,6 +171,7 @@ fun WingoAppScreen() {
                         loadWithOverviewMode = false
                         mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                         cacheMode = WebSettings.LOAD_DEFAULT
+                        mediaPlaybackRequiresUserGesture = false
                     }
 
                     // Enable Cookies
@@ -267,79 +282,283 @@ fun WingoAppScreen() {
             }
         )
 
-        // 2. Floating Action Button (FAB)
-        // Animates visibility when the user is logged in
+        // 2. Draggable Floating Hacking Widget (Icon or expanded Mini Screen)
         AnimatedVisibility(
             visible = effectiveIsLoggedIn,
             enter = scaleIn() + fadeIn(),
             exit = scaleOut() + fadeOut(),
             modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .navigationBarsPadding()
-                .padding(bottom = 80.dp, end = 20.dp) // Pinned safely above system gesture area
+                .align(Alignment.CenterEnd) // Start at middle-right edge
+                .offset { IntOffset(floatingXOffset.roundToInt(), floatingYOffset.roundToInt()) }
+                .pointerInput(Unit) {
+                    detectDragGestures { change, dragAmount ->
+                        change.consume()
+                        floatingXOffset += dragAmount.x
+                        floatingYOffset += dragAmount.y
+                    }
+                }
+                .padding(end = 12.dp)
         ) {
-            FloatingActionButton(
-                onClick = {
-                    isSettingsMode = false
-                    showBottomSheet = true
-                },
-                containerColor = Color(0xFFFF6B00),
-                contentColor = Color.White,
-                shape = CircleShape,
-                modifier = Modifier
-                    .size(60.dp)
-                    .border(2.dp, Color.White.copy(alpha = 0.8f), CircleShape)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    // Pulsing Ring Effect
-                    val infiniteTransition = rememberInfiniteTransition(label = "FABPulse")
+            if (!isMiniScreenExpanded) {
+                // COLLAPSED: Small Pulsing/Loading Floating Icon
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(
+                            brush = Brush.radialGradient(
+                                colors = listOf(Color(0xFF2C2C35), Color(0xFF141419))
+                            )
+                        )
+                        .border(
+                            2.dp,
+                            if (effectiveHackActive) Color(0xFFFF6B00) else Color(0xFFFF5252).copy(alpha = 0.8f),
+                            CircleShape
+                        )
+                        .clickable {
+                            isMiniScreenExpanded = true
+                        }
+                ) {
+                    // Pulsing / Spinning Loading Effect
+                    val infiniteTransition = rememberInfiniteTransition(label = "IconLoader")
                     val pulseScale by infiniteTransition.animateFloat(
-                        initialValue = 1.0f,
-                        targetValue = 1.4f,
+                        initialValue = 0.9f,
+                        targetValue = 1.15f,
                         animationSpec = infiniteRepeatable(
-                            animation = tween(1500, easing = LinearEasing),
-                            repeatMode = RepeatMode.Restart
+                            animation = tween(1200, easing = LinearEasing),
+                            repeatMode = RepeatMode.Reverse
                         ),
-                        label = "PulseScale"
-                    )
-                    val pulseAlpha by infiniteTransition.animateFloat(
-                        initialValue = 0.6f,
-                        targetValue = 0.0f,
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(1500, easing = LinearEasing),
-                            repeatMode = RepeatMode.Restart
-                        ),
-                        label = "PulseAlpha"
+                        label = "Pulse"
                     )
 
+                    val rotationAngle by infiniteTransition.animateFloat(
+                        initialValue = 0f,
+                        targetValue = 360f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(2000, easing = LinearEasing),
+                            repeatMode = RepeatMode.Restart
+                        ),
+                        label = "Rotation"
+                    )
+
+                    // Spinning outer hacker tech ring
                     Box(
                         modifier = Modifier
-                            .size(60.dp)
-                            .background(
-                                color = Color(0xFFFF6B00).copy(alpha = pulseAlpha),
+                            .size(46.dp)
+                            .scale(pulseScale)
+                            .border(
+                                width = 1.5.dp,
+                                brush = Brush.sweepGradient(
+                                    colors = listOf(
+                                        if (effectiveHackActive) Color(0xFFFF6B00) else Color(0xFFFF5252),
+                                        Color.Transparent
+                                    )
+                                ),
                                 shape = CircleShape
                             )
                     )
 
-                    // Target Icon
-                    Icon(
-                        imageVector = Icons.Default.PlayArrow,
-                        contentDescription = "Open Wingo Prediction Tool",
-                        modifier = Modifier.size(32.dp)
-                    )
+                    // Center active indicator (pulsing chip/lock/arrow)
+                    if (effectiveHackActive) {
+                        // Glowing target/chip
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(28.dp)
+                                .background(Color(0xFFFF6B00).copy(alpha = 0.15f), CircleShape)
+                        ) {
+                            Text(
+                                text = "H",
+                                color = Color(0xFFFF6B00),
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = "Hacking Tool Locked",
+                            tint = Color(0xFFFF5252),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            } else {
+                // EXPANDED: Mini Screen showing ONLY the next predicted number or Locked status
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFA141419)),
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(
+                        2.dp,
+                        if (effectiveHackActive) Color(0xFFFF6B00) else Color(0xFFFF5252).copy(alpha = 0.8f)
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
+                    modifier = Modifier.width(140.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        // Header row with Close button
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = if (effectiveHackActive) "WINGO HACK" else "LOCKED",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = if (effectiveHackActive) Color(0xFFFF6B00) else Color(0xFFFF5252)
+                            )
+
+                            // Compact Close Button to minimize to floating icon
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(18.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White.copy(alpha = 0.1f))
+                                    .clickable { isMiniScreenExpanded = false }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Close Mini Screen",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Body Content: ONLY the next predicted number, NO big/small, NO color!
+                        if (effectiveHackActive) {
+                            val pred = prediction
+                            if (pred != null) {
+                                // Giant center predicted number
+                                val numColor = when (pred.color?.lowercase()) {
+                                    "green" -> Color(0xFF4CAF50)
+                                    "violet" -> Color(0xFF9C27B0)
+                                    else -> Color(0xFFE53935)
+                                }
+
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier.clickable {
+                                        // Tapping number can open the full detail bottom sheet if they want settings/info!
+                                        isSettingsMode = false
+                                        showBottomSheet = true
+                                    }
+                                ) {
+                                    Text(
+                                        text = "NEXT NO.",
+                                        fontSize = 8.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.Gray,
+                                        letterSpacing = 1.sp
+                                    )
+                                    
+                                    Spacer(modifier = Modifier.height(2.dp))
+
+                                    Box(
+                                        contentAlignment = Alignment.Center,
+                                        modifier = Modifier
+                                            .size(56.dp)
+                                            .background(
+                                                brush = Brush.radialGradient(
+                                                    colors = listOf(numColor.copy(alpha = 0.25f), Color.Transparent)
+                                                ),
+                                                shape = CircleShape
+                                            )
+                                    ) {
+                                        Text(
+                                            text = pred.number.toString(),
+                                            color = numColor,
+                                            fontSize = 38.sp,
+                                            fontWeight = FontWeight.Black,
+                                            textAlign = TextAlign.Center
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(4.dp))
+
+                                    // Small clean timer at the bottom of mini screen to stay helpful
+                                    Text(
+                                        text = "UPDATES IN ${timeLeft}s",
+                                        fontSize = 8.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (timeLeft <= 10) Color(0xFFFF5252) else Color(0xFF4CAF50)
+                                    )
+                                }
+                            } else {
+                                // SENSING Loader
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier.padding(vertical = 12.dp)
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(24.dp),
+                                        color = Color(0xFFFF6B00),
+                                        strokeWidth = 2.5.dp
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = "SENSING...",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFFF6B00)
+                                    )
+                                }
+                            }
+                        } else {
+                            // Locked Status with Lock Icon and Deposit indicator
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier
+                                    .padding(vertical = 4.dp)
+                                    .clickable {
+                                        isSettingsMode = false
+                                        showBottomSheet = true
+                                    }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Info,
+                                    contentDescription = "Locked",
+                                    tint = Color(0xFFFF5252),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "LOCKED",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color(0xFFFF5252)
+                                )
+                                Text(
+                                    text = "TAP TO UNLOCK",
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.Gray
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
 
-        // 3. Floating Setup Button when Logged-out (Safe corner placement, no overlay on website tabs)
+        // 3. Floating Setup Button when Logged-out (Only visible when Developer Mode is active!)
         AnimatedVisibility(
-            visible = !effectiveIsLoggedIn,
+            visible = !effectiveIsLoggedIn && isDeveloperMode,
             enter = scaleIn() + fadeIn(),
             exit = scaleOut() + fadeOut(),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .navigationBarsPadding()
-                .padding(bottom = 80.dp, end = 20.dp) // Exact same corner alignment, zero website interference
+                .padding(bottom = 80.dp, end = 20.dp)
         ) {
             FloatingActionButton(
                 onClick = {
@@ -361,6 +580,25 @@ fun WingoAppScreen() {
                 )
             }
         }
+
+        // Invisible Developer Easter Egg Trigger at Top-Right
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .statusBarsPadding()
+                .size(48.dp)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) {
+                    developerTapCount++
+                    if (developerTapCount >= 5) {
+                        isDeveloperMode = !isDeveloperMode
+                        Toast.makeText(context, "Developer Mode: ${if (isDeveloperMode) "ACTIVE" else "DISABLED"}", Toast.LENGTH_SHORT).show()
+                        developerTapCount = 0
+                    }
+                }
+        )
 
         // 4. Modal Bottom Sheet containing Wingo prediction and controls
         if (showBottomSheet) {
@@ -385,7 +623,20 @@ fun WingoAppScreen() {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
+                            ) {
+                                developerTapCount++
+                                if (developerTapCount >= 5) {
+                                    isDeveloperMode = !isDeveloperMode
+                                    Toast.makeText(context, "Developer Mode: ${if (isDeveloperMode) "ACTIVE" else "DISABLED"}", Toast.LENGTH_SHORT).show()
+                                    developerTapCount = 0
+                                }
+                            }
+                        ) {
                             Text(
                                 text = "🎯 Wingo Prediction",
                                 fontSize = 20.sp,
@@ -408,12 +659,14 @@ fun WingoAppScreen() {
                         }
 
                         Row {
-                            IconButton(onClick = { isSettingsMode = !isSettingsMode }) {
-                                Icon(
-                                    imageVector = Icons.Default.Settings,
-                                    contentDescription = "Config Domains & Bypasses",
-                                    tint = if (isSettingsMode) Color(0xFFFF6B00) else Color.Gray
-                                )
+                            if (isDeveloperMode) {
+                                IconButton(onClick = { isSettingsMode = !isSettingsMode }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Settings,
+                                        contentDescription = "Config Domains & Bypasses",
+                                        tint = if (isSettingsMode) Color(0xFFFF6B00) else Color.Gray
+                                    )
+                                }
                             }
                             IconButton(onClick = { showBottomSheet = false }) {
                                 Icon(

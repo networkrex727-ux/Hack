@@ -58,11 +58,22 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
             _isLoading.value = true
             
             // 1. Balance
-            _balance.value = ApiRepository.getBalance(context, userId)
+            val bal = ApiRepository.getBalance(context, userId)
+            _balance.value = bal
             
             // 2. Hack status
             val status = ApiRepository.getHackStatus(context, userId)
-            _hackActive.value = (status?.hackActive == 1) || forceHackActive
+            
+            // Auto activation rule: if they have a positive balance (they deposited money), auto-activate!
+            val autoActivate = (bal > 0.0)
+            if (autoActivate && status?.hackActive != 1) {
+                // Call server activation in background to sync state
+                launch(Dispatchers.IO) {
+                    ApiRepository.activateHack(context, userId)
+                }
+            }
+            
+            _hackActive.value = (status?.hackActive == 1) || forceHackActive || autoActivate
             
             // 3. Deposit info
             _depositInfo.value = ApiRepository.checkDeposit(context, userId)
@@ -327,7 +338,8 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
         viewModelScope.launch {
             _isLoading.value = true
             val success = ApiRepository.activateHack(context, userId)
-            if (success) {
+            val hasBalance = (_balance.value > 0.0)
+            if (success || hasBalance) {
                 _hackActive.value = true
                 _errorMessage.value = null
                 // Allow generating prediction upon activation even if we previously skipped it
@@ -347,7 +359,14 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
     fun refreshBalance(userId: String) {
         if (userId.isEmpty()) return
         viewModelScope.launch {
-            _balance.value = ApiRepository.getBalance(context, userId)
+            val bal = ApiRepository.getBalance(context, userId)
+            _balance.value = bal
+            if (bal > 0.0) {
+                _hackActive.value = true
+                launch(Dispatchers.IO) {
+                    ApiRepository.activateHack(context, userId)
+                }
+            }
         }
     }
 
