@@ -23,6 +23,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntOffset
 import kotlin.math.roundToInt
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -381,337 +382,433 @@ fun WingoAppScreen() {
                 }
                 .padding(end = 12.dp)
         ) {
-            if (!isMiniScreenExpanded) {
-                // COLLAPSED: Small Beautiful Pulsing / Spinning Loading Floating Icon
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(64.dp)
-                        .clip(CircleShape)
-                        .clickable {
-                            isMiniScreenExpanded = true
-                        }
-                ) {
-                    // Rotating RGB border background
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .graphicsLayer { rotationZ = rgbAngle }
-                            .background(Brush.sweepGradient(colors = rainbowColors))
-                    )
-
-                    // Inner Dark core masking to leave an RGB border
+            AnimatedContent(
+                targetState = isMiniScreenExpanded,
+                transitionSpec = {
+                    (fadeIn(animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMedium)) +
+                            scaleIn(initialScale = 0.8f, animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMedium)))
+                        .togetherWith(fadeOut(animationSpec = tween(150)) + scaleOut(targetScale = 0.8f, animationSpec = tween(150)))
+                },
+                label = "MiniScreenAnimation"
+            ) { expanded ->
+                if (!expanded) {
+                    // COLLAPSED: Small Beautiful Pulsing / Spinning Loading Floating Icon
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
-                            .size(56.dp)
+                            .size(64.dp)
                             .clip(CircleShape)
-                            .background(
-                                brush = Brush.verticalGradient(
-                                    colors = listOf(Color(0xFF1F1F24), Color(0xFF0B0B0E))
-                                )
-                            )
+                            .clickable {
+                                isMiniScreenExpanded = true
+                            }
                     ) {
-                        val infinitePulse = rememberInfiniteTransition(label = "HackerPulse")
-                        val pulseGlow by infinitePulse.animateFloat(
-                            initialValue = 0.6f,
-                            targetValue = 1.0f,
-                            animationSpec = infiniteRepeatable(
-                                animation = tween(1100, easing = LinearEasing),
-                                repeatMode = RepeatMode.Reverse
-                            ),
-                            label = "PulseGlow"
-                        )
-
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Text(
-                                text = ">_",
-                                color = Color(0xFF00FF66).copy(alpha = pulseGlow),
-                                fontSize = 16.sp,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "HACK",
-                                color = if (effectiveHackActive) Color(0xFFFF6B00) else Color(0xFF00FF66).copy(alpha = pulseGlow),
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Black,
-                                letterSpacing = 0.5.sp
-                            )
-                        }
-                    }
-                }
-            } else {
-                // EXPANDED: Premium, larger high-tech Mini Screen with dynamic rotating RGB borders!
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-                    shape = RoundedCornerShape(18.dp),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 12.dp),
-                    modifier = Modifier.width(340.dp)
-                ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(18.dp))
-                    ) {
-                        // 1. Rotating RGB Border background for the card
+                        // Rotating RGB border background
                         Box(
                             modifier = Modifier
-                                .matchParentSize()
+                                .fillMaxSize()
                                 .graphicsLayer { rotationZ = rgbAngle }
                                 .background(Brush.sweepGradient(colors = rainbowColors))
                         )
 
-                        // 2. Inner Deep Black Core Content
-                        Column(
+                        // Inner Dark core masking to leave an RGB border
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(56.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    brush = Brush.verticalGradient(
+                                        colors = listOf(Color(0xFF1F1F24), Color(0xFF0B0B0E))
+                                    )
+                                )
+                        ) {
+                            val infinitePulse = rememberInfiniteTransition(label = "HackerPulse")
+                            val pulseGlow by infinitePulse.animateFloat(
+                                initialValue = 0.6f,
+                                targetValue = 1.0f,
+                                animationSpec = infiniteRepeatable(
+                                    animation = tween(1100, easing = LinearEasing),
+                                    repeatMode = RepeatMode.Reverse
+                                ),
+                                label = "PulseGlow"
+                            )
+
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    text = ">_",
+                                    color = Color(0xFF00FF66).copy(alpha = pulseGlow),
+                                    fontSize = 16.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "HACK",
+                                    color = if (effectiveHackActive) Color(0xFFFF6B00) else Color(0xFF00FF66).copy(alpha = pulseGlow),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = 0.5.sp
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    // EXPANDED: Premium, larger high-tech Mini Screen with dynamic rotating RGB borders!
+                    
+                    // Setup internal scanner and pulsing animations
+                    val scannerTransition = rememberInfiniteTransition(label = "Scanner")
+                    val scanOffset by scannerTransition.animateFloat(
+                        initialValue = 0f,
+                        targetValue = 1f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(2800, easing = LinearEasing),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "ScanOffset"
+                    )
+                    val pulseScaleTransition = rememberInfiniteTransition(label = "PulseScale")
+                    val pulseScale by pulseScaleTransition.animateFloat(
+                        initialValue = 0.95f,
+                        targetValue = 1.05f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(1200, easing = FastOutSlowInEasing),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "PulseScale"
+                    )
+
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                        shape = RoundedCornerShape(18.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 12.dp),
+                        modifier = Modifier
+                            .width(230.dp)
+                            .heightIn(min = 420.dp)
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(3.dp) // Leave perfect 3dp RGB border gap
-                                .clip(RoundedCornerShape(15.dp))
-                                .background(Color(0xFF0D0D11))
-                                .padding(12.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                                .clip(RoundedCornerShape(18.dp))
                         ) {
-                            // Header row with title & compact Close button
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                            // 1. Rotating RGB Border background for the card
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .graphicsLayer { rotationZ = rgbAngle }
+                                    .background(Brush.sweepGradient(colors = rainbowColors))
+                            )
+
+                            // 2. Inner Deep Black Core Content
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(3.dp) // Leave perfect 3dp RGB border gap
+                                    .clip(RoundedCornerShape(15.dp))
+                                    .background(Color(0xFF0D0D11))
+                                    .padding(horizontal = 10.dp, vertical = 14.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(6.dp)
-                                            .background(
-                                                if (effectiveHackActive) Color(0xFF00FF66) else Color(0xFFFF3333),
-                                                CircleShape
-                                            )
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = if (!effectiveIsLoggedIn) "NOT CONNECTED" else if (effectiveHackActive) "WINGO ACTIVE" else "LOCKED",
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Black,
-                                        color = if (!effectiveIsLoggedIn) Color.Gray else if (effectiveHackActive) Color(0xFF00FF66) else Color(0xFFFF3333),
-                                        letterSpacing = 0.5.sp
-                                    )
-                                }
-
-                                // Close Button
-                                Box(
-                                    contentAlignment = Alignment.Center,
-                                    modifier = Modifier
-                                        .size(20.dp)
-                                        .clip(CircleShape)
-                                        .background(Color.White.copy(alpha = 0.12f))
-                                        .clickable { isMiniScreenExpanded = false }
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Close,
-                                        contentDescription = "Close Mini Screen",
-                                        tint = Color.White.copy(alpha = 0.85f),
-                                        modifier = Modifier.size(12.dp)
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(10.dp))
-
-                            // Body Content matching state
-                            if (!effectiveIsLoggedIn) {
-                                // CASE A: User not logged in/registered
-                                Icon(
-                                    imageVector = Icons.Default.Lock,
-                                    contentDescription = "Lock Icon",
-                                    tint = Color(0xFFFF3333),
-                                    modifier = Modifier.size(36.dp)
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = "LOGIN REQUIRED",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White,
-                                    textAlign = TextAlign.Center
-                                )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text(
-                                    text = "Please log in or register on the game page below. Once logged in, the tool will automatically sync and display real-time predictions.",
-                                    fontSize = 10.sp,
-                                    color = Color.LightGray,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(horizontal = 8.dp)
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-                                CircularProgressIndicator(
-                                    color = Color(0xFFFF3333),
-                                    modifier = Modifier.size(16.dp),
-                                    strokeWidth = 2.dp
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "WAITING FOR USER LOGIN...",
-                                    fontSize = 8.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.Gray
-                                )
-                            } else if (!effectiveHackActive) {
-                                // CASE B: Logged in but Hack is Locked
-                                Icon(
-                                    imageVector = Icons.Default.Warning,
-                                    contentDescription = "Security Alert",
-                                    tint = Color(0xFFFF6B00),
-                                    modifier = Modifier.size(32.dp)
-                                )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text(
-                                    text = "SECURITY LOCK ACTIVE",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Black,
-                                    color = Color(0xFFFF6B00),
-                                    textAlign = TextAlign.Center
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "Access requires minimum security deposit. Sync balance to active calculations.",
-                                    fontSize = 9.sp,
-                                    color = Color.LightGray,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(horizontal = 4.dp)
-                                )
-                                Spacer(modifier = Modifier.height(10.dp))
-
-                                val requiredAmount = depositInfo?.required ?: 500.0
-                                val currentPaid = depositInfo?.totalDeposit ?: 0.0
-
-                                LinearProgressIndicator(
-                                    progress = {
-                                        val fraction = if (requiredAmount > 0) (currentPaid / requiredAmount).toFloat() else 0f
-                                        fraction.coerceIn(0f, 1f)
-                                    },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(5.dp)
-                                        .clip(RoundedCornerShape(3.dp)),
-                                    color = Color(0xFFFF6B00),
-                                    trackColor = Color.White.copy(alpha = 0.1f)
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "Deposit: ₹${currentPaid.toInt()} / ₹${requiredAmount.toInt()}",
-                                    fontSize = 8.5.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.Gray
-                                )
-
-                                Spacer(modifier = Modifier.height(10.dp))
-
+                                // Header row with title & compact Close button
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Button(
-                                        onClick = {
-                                            val effectiveId = if (userId.isEmpty()) "test_user_777" else userId
-                                            viewModel.tryActivateHack(effectiveId)
-                                        },
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF6B00)),
-                                        shape = RoundedCornerShape(8.dp),
-                                        modifier = Modifier.weight(1f),
-                                        enabled = !isLoading,
-                                        contentPadding = PaddingValues(vertical = 8.dp)
-                                    ) {
-                                        if (isLoading) {
-                                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                                        } else {
-                                            Text("⚡ ACTIVATE", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                        }
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(6.dp)
+                                                .background(
+                                                    if (effectiveHackActive) Color(0xFF00FF66) else Color(0xFFFF3333),
+                                                    CircleShape
+                                                )
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = if (!effectiveIsLoggedIn) "NOT CONNECTED" else if (effectiveHackActive) "WINGO ACTIVE" else "LOCKED",
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = if (!effectiveIsLoggedIn) Color.Gray else if (effectiveHackActive) Color(0xFF00FF66) else Color(0xFFFF3333),
+                                            letterSpacing = 0.5.sp
+                                        )
                                     }
 
-                                    Button(
-                                        onClick = {
-                                            showDepositDialog = true
-                                        },
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
-                                        shape = RoundedCornerShape(8.dp),
-                                        modifier = Modifier.weight(1.2f),
-                                        contentPadding = PaddingValues(vertical = 8.dp)
-                                    ) {
-                                        Text("➕ SUBMIT LOG", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                    }
-                                }
-                            } else {
-                                // CASE C: Hack Active - Show ONLY next predicted number!
-                                val pred = prediction
-                                if (pred != null) {
-                                    val numColor = when (pred.color?.lowercase()) {
-                                        "green" -> Color(0xFF00FF66)
-                                        "violet" -> Color(0xFFBA68C8)
-                                        else -> Color(0xFFFF3333)
-                                    }
-
-                                    Text(
-                                        text = "NEXT PREDICTED NUMBER",
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Black,
-                                        color = Color.Gray,
-                                        letterSpacing = 0.8.sp
-                                    )
-
-                                    Spacer(modifier = Modifier.height(10.dp))
-
+                                    // Close Button
                                     Box(
                                         contentAlignment = Alignment.Center,
                                         modifier = Modifier
-                                            .size(76.dp)
-                                            .background(
-                                                brush = Brush.radialGradient(
-                                                    colors = listOf(numColor.copy(alpha = 0.25f), Color.Transparent)
-                                                ),
-                                                shape = CircleShape
-                                            )
-                                            .border(1.5.dp, numColor.copy(alpha = 0.35f), CircleShape)
+                                            .size(20.dp)
+                                            .clip(CircleShape)
+                                            .background(Color.White.copy(alpha = 0.12f))
+                                            .clickable { isMiniScreenExpanded = false }
                                     ) {
-                                        Text(
-                                            text = pred.number.toString(),
-                                            color = numColor,
-                                            fontSize = 48.sp,
-                                            fontWeight = FontWeight.Black,
-                                            textAlign = TextAlign.Center
-                                        )
-                                    }
-
-                                    Spacer(modifier = Modifier.height(10.dp))
-
-                                    Text(
-                                        text = "SYNCED • NEXT IN ${timeLeft}s",
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (timeLeft <= 10) Color(0xFFFF3333) else Color(0xFF00FF66)
-                                    )
-                                } else {
-                                    Column(
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        modifier = Modifier.padding(vertical = 12.dp)
-                                    ) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(24.dp),
-                                            color = Color(0xFFFF6B00),
-                                            strokeWidth = 2.5.dp
-                                        )
-                                        Spacer(modifier = Modifier.height(6.dp))
-                                        Text(
-                                            text = "SENSING...",
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color(0xFFFF6B00)
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = "Close Mini Screen",
+                                            tint = Color.White.copy(alpha = 0.85f),
+                                            modifier = Modifier.size(12.dp)
                                         )
                                     }
                                 }
+
+                                Spacer(modifier = Modifier.height(14.dp))
+
+                                // Body Content matching state
+                                if (!effectiveIsLoggedIn) {
+                                    // CASE A: User not logged in/registered
+                                    Icon(
+                                        imageVector = Icons.Default.Lock,
+                                        contentDescription = "Lock Icon",
+                                        tint = Color(0xFFFF3333),
+                                        modifier = Modifier.size(36.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "LOGIN REQUIRED",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White,
+                                        textAlign = TextAlign.Center
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = "Log in or register on the game page below to automatically sync predictions in real-time.",
+                                        fontSize = 9.sp,
+                                        color = Color.LightGray,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.padding(horizontal = 4.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    CircularProgressIndicator(
+                                        color = Color(0xFFFF3333),
+                                        modifier = Modifier.size(16.dp),
+                                        strokeWidth = 2.dp
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = "WAITING FOR USER LOGIN...",
+                                        fontSize = 8.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.Gray
+                                    )
+                                } else if (!effectiveHackActive) {
+                                    // CASE B: Logged in but Hack is Locked
+                                    Icon(
+                                        imageVector = Icons.Default.Warning,
+                                        contentDescription = "Security Alert",
+                                        tint = Color(0xFFFF6B00),
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = "SECURITY LOCK ACTIVE",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = Color(0xFFFF6B00),
+                                        textAlign = TextAlign.Center
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "Access requires minimum security deposit. Sync balance to activate calculations.",
+                                        fontSize = 9.sp,
+                                        color = Color.LightGray,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.padding(horizontal = 4.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(14.dp))
+
+                                    val requiredAmount = depositInfo?.required ?: 500.0
+                                    val currentPaid = depositInfo?.totalDeposit ?: 0.0
+
+                                    LinearProgressIndicator(
+                                        progress = {
+                                            val fraction = if (requiredAmount > 0) (currentPaid / requiredAmount).toFloat() else 0f
+                                            fraction.coerceIn(0f, 1f)
+                                        },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(5.dp)
+                                            .clip(RoundedCornerShape(3.dp)),
+                                        color = Color(0xFFFF6B00),
+                                        trackColor = Color.White.copy(alpha = 0.1f)
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = "Deposit: ₹${currentPaid.toInt()} / ₹${requiredAmount.toInt()}",
+                                        fontSize = 8.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.Gray
+                                    )
+
+                                    Spacer(modifier = Modifier.height(14.dp))
+
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Button(
+                                            onClick = {
+                                                val effectiveId = if (userId.isEmpty()) "test_user_777" else userId
+                                                viewModel.tryActivateHack(effectiveId)
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF6B00)),
+                                            shape = RoundedCornerShape(8.dp),
+                                            modifier = Modifier.fillMaxWidth(),
+                                            enabled = !isLoading,
+                                            contentPadding = PaddingValues(vertical = 8.dp)
+                                        ) {
+                                            if (isLoading) {
+                                                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                            } else {
+                                                Text("⚡ ACTIVATE HACK", fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+
+                                        Button(
+                                            onClick = {
+                                                showDepositDialog = true
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                                            shape = RoundedCornerShape(8.dp),
+                                            modifier = Modifier.fillMaxWidth(),
+                                            contentPadding = PaddingValues(vertical = 8.dp)
+                                        ) {
+                                            Text("➕ SUBMIT LOG", fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                } else {
+                                    // CASE C: Hack Active - Show ONLY next predicted number!
+                                    val pred = prediction
+                                    if (pred != null) {
+                                        val numColor = when (pred.color?.lowercase()) {
+                                            "green" -> Color(0xFF00FF66)
+                                            "violet" -> Color(0xFFBA68C8)
+                                            else -> Color(0xFFFF3333)
+                                        }
+
+                                        Text(
+                                            text = "NEXT PREDICTED NUMBER",
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = Color.Gray,
+                                            letterSpacing = 0.8.sp
+                                        )
+
+                                        Spacer(modifier = Modifier.height(16.dp))
+
+                                        Box(
+                                            contentAlignment = Alignment.Center,
+                                            modifier = Modifier
+                                                .size(76.dp)
+                                                .scale(pulseScale)
+                                                .background(
+                                                    brush = Brush.radialGradient(
+                                                        colors = listOf(numColor.copy(alpha = 0.25f), Color.Transparent)
+                                                    ),
+                                                    shape = CircleShape
+                                                )
+                                                .border(1.5.dp, numColor.copy(alpha = 0.35f), CircleShape)
+                                        ) {
+                                            Text(
+                                                text = pred.number.toString(),
+                                                color = numColor,
+                                                fontSize = 44.sp,
+                                                fontWeight = FontWeight.Black,
+                                                textAlign = TextAlign.Center
+                                            )
+                                        }
+
+                                        Spacer(modifier = Modifier.height(16.dp))
+
+                                        Text(
+                                            text = "SYNCED • NEXT IN ${timeLeft}s",
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (timeLeft <= 10) Color(0xFFFF3333) else Color(0xFF00FF66)
+                                        )
+
+                                        Spacer(modifier = Modifier.height(16.dp))
+
+                                        // Animated dynamic frequency telemetry bars
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                            verticalAlignment = Alignment.Bottom,
+                                            modifier = Modifier.height(16.dp)
+                                        ) {
+                                            repeat(6) { index ->
+                                                val barHeightPhase = rememberInfiniteTransition(label = "BarHeight$index")
+                                                val barHeight by barHeightPhase.animateFloat(
+                                                    initialValue = 4f,
+                                                    targetValue = 18f,
+                                                    animationSpec = infiniteRepeatable(
+                                                        animation = tween(
+                                                            durationMillis = 400 + (index * 120),
+                                                            easing = FastOutLinearInEasing,
+                                                            delayMillis = index * 60
+                                                        ),
+                                                        repeatMode = RepeatMode.Reverse
+                                                    ),
+                                                    label = "BarHeight"
+                                                )
+                                                Box(
+                                                    modifier = Modifier
+                                                        .width(3.dp)
+                                                        .height(barHeight.dp)
+                                                        .background(
+                                                            Color(0xFF00FF66),
+                                                            RoundedCornerShape(1.dp)
+                                                        )
+                                                )
+                                            }
+                                        }
+                                    } else {
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            modifier = Modifier.padding(vertical = 12.dp)
+                                        ) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(24.dp),
+                                                color = Color(0xFFFF6B00),
+                                                strokeWidth = 2.5.dp
+                                            )
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                            Text(
+                                                text = "SENSING...",
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFFFF6B00)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            // 3. Floating High-Tech Scanline Overlay (Canvas)
+                            val scanColor = if (effectiveHackActive) Color(0xFF00FF66) else Color(0xFFFF6B00)
+                            Canvas(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .clip(RoundedCornerShape(18.dp))
+                            ) {
+                                val y = size.height * scanOffset
+                                drawLine(
+                                    color = scanColor.copy(alpha = 0.5f),
+                                    start = androidx.compose.ui.geometry.Offset(0f, y),
+                                    end = androidx.compose.ui.geometry.Offset(size.width, y),
+                                    strokeWidth = 3f
+                                )
+                                drawRect(
+                                    brush = Brush.verticalGradient(
+                                        colors = listOf(Color.Transparent, scanColor.copy(alpha = 0.05f), Color.Transparent),
+                                        startY = y - 40f,
+                                        endY = y + 40f
+                                    ),
+                                    topLeft = androidx.compose.ui.geometry.Offset(0f, (y - 40f).coerceAtLeast(0f)),
+                                    size = androidx.compose.ui.geometry.Size(size.width, 80f)
+                                )
                             }
                         }
                     }

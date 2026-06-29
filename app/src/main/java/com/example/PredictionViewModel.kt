@@ -58,35 +58,30 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
         viewModelScope.launch {
             _isLoading.value = true
             
-            // 1. Balance
-            val bal = session.getBalance(userId)
+            // 1. Balance & Deposit Info from live API
+            val dep = ApiRepository.checkDeposit(context, userId)
+            _depositInfo.value = dep
+            
+            // Sync balance and deposit info
+            val bal = dep.balance
             _balance.value = bal
+            session.setBalance(userId, bal)
+            session.setTotalDeposit(userId, dep.totalDeposit)
             
-            // 2. Deposit Info
-            val required = 500.0 // Minimum ₹500 required to unlock Wingo prediction
-            val currentPaid = session.getTotalDeposit(userId)
-            val remaining = (required - currentPaid).coerceAtLeast(0.0)
-            val unlocked = currentPaid >= required
-            
-            _depositInfo.value = DepositCheckResponse(
-                status = "success",
-                required = required,
-                totalDeposit = currentPaid,
-                remaining = remaining,
-                unlocked = unlocked
-            )
-            
-            // 3. Hack Active Status (Only active if unlocked, or forceHackActive, or session.hackActive)
-            val isHackActive = unlocked || forceHackActive || session.hackActive
+            // 2. Hack Active Status (Only active if unlocked on server, or forceHackActive, or session.hackActive)
+            val isHackActive = dep.unlocked || (dep.totalDeposit >= dep.required) || forceHackActive || session.hackActive
             _hackActive.value = isHackActive
+            if (isHackActive) {
+                session.hackActive = true
+            }
             
-            // 4. Period calculation
+            // 3. Period calculation
             updatePeriod()
             
-            // 5. Start countdown (handles fetching on new period changes)
+            // 4. Start countdown (handles fetching on new period changes)
             startCountdown(userId)
             
-            // 6. If hack is active, perform initial prediction generation & setting
+            // 5. If hack is active, perform initial prediction generation & setting
             if (isHackActive) {
                 generateAndSetPrediction(userId)
             }
@@ -378,9 +373,14 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
         viewModelScope.launch {
             _isLoading.value = true
             
-            val totalDeposit = session.getTotalDeposit(userId)
-            val required = 500.0
-            if (totalDeposit >= required) {
+            val dep = ApiRepository.checkDeposit(context, userId)
+            _depositInfo.value = dep
+            _balance.value = dep.balance
+            session.setBalance(userId, dep.balance)
+            session.setTotalDeposit(userId, dep.totalDeposit)
+            
+            val unlocked = dep.unlocked || (dep.totalDeposit >= dep.required)
+            if (unlocked) {
                 session.hackActive = true
                 _hackActive.value = true
                 _errorMessage.value = null
@@ -388,7 +388,7 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
                 lastGeneratedPeriodId = null
                 generateAndSetPrediction(userId)
             } else {
-                val remaining = required - totalDeposit
+                val remaining = dep.remaining
                 _errorMessage.value = "Deposit ₹${String.format("%.0f", remaining)} more to activate"
             }
             _isLoading.value = false

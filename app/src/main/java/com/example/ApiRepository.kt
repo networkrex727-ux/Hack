@@ -149,13 +149,47 @@ object ApiRepository {
     }
 
     suspend fun checkDeposit(context: Context, userId: String): DepositCheckResponse {
-        return DepositCheckResponse(
-            status = "success",
-            required = 3000.0,
-            totalDeposit = 3000.0,
-            remaining = 0.0,
-            unlocked = true
-        )
+        return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val url = "https://yaarwins.xyz/admin90/deposit_api.php?action=check&user_id=$userId"
+                val request = Request.Builder()
+                    .url(url)
+                    .get()
+                    .build()
+
+                val response = client.newCall(request).execute()
+                if (response.isSuccessful) {
+                    val html = response.body?.string() ?: ""
+                    val json = org.json.JSONObject(html)
+                    val status = json.optString("status", "error")
+                    val req = json.optDouble("required", 3000.0)
+                    val totalDeposit = json.optDouble("total_deposit", 0.0)
+                    val remaining = json.optDouble("remaining", req)
+                    val balance = json.optDouble("balance", 0.0)
+                    val unlocked = json.optBoolean("unlocked", false)
+
+                    return@withContext DepositCheckResponse(
+                        status = status,
+                        required = req,
+                        totalDeposit = totalDeposit,
+                        remaining = remaining,
+                        unlocked = unlocked,
+                        balance = balance
+                    )
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            // Fallback in case of error
+            DepositCheckResponse(
+                status = "error",
+                required = 3000.0,
+                totalDeposit = 0.0,
+                remaining = 3000.0,
+                unlocked = false,
+                balance = 0.0
+            )
+        }
     }
 
     suspend fun getHackStatus(context: Context, userId: String): HackStatusResponse {

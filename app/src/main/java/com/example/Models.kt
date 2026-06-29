@@ -31,7 +31,8 @@ data class DepositCheckResponse(
     val required: Double = 0.0,
     @Json(name = "total_deposit") val totalDeposit: Double = 0.0,
     val remaining: Double = 0.0,
-    val unlocked: Boolean = false
+    val unlocked: Boolean = false,
+    val balance: Double = 0.0
 )
 
 @JsonClass(generateAdapter = true)
