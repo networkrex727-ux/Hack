@@ -116,8 +116,8 @@ fun WingoAppScreen() {
     var isDeveloperMode by remember { mutableStateOf(false) }
 
     // Bypasses / Overrides for Developer Testing
-    var bypassLogin by remember { mutableStateOf(true) }
-    var forceHackActive by remember { mutableStateOf(true) }
+    var bypassLogin by remember { mutableStateOf(false) }
+    var forceHackActive by remember { mutableStateOf(false) }
 
     // Live Data flows from ViewModel
     val currentPeriod by viewModel.currentPeriod.collectAsState()
@@ -425,7 +425,7 @@ fun WingoAppScreen() {
                     colors = CardDefaults.cardColors(containerColor = Color.Transparent),
                     shape = RoundedCornerShape(18.dp),
                     elevation = CardDefaults.cardElevation(defaultElevation = 12.dp),
-                    modifier = Modifier.width(200.dp)
+                    modifier = Modifier.width(280.dp)
                 ) {
                     Box(
                         contentAlignment = Alignment.Center,
@@ -503,37 +503,37 @@ fun WingoAppScreen() {
                                     imageVector = Icons.Default.Lock,
                                     contentDescription = "Lock Icon",
                                     tint = Color(0xFFFF3333),
-                                    modifier = Modifier.size(32.dp)
+                                    modifier = Modifier.size(36.dp)
                                 )
-                                Spacer(modifier = Modifier.height(6.dp))
+                                Spacer(modifier = Modifier.height(8.dp))
                                 Text(
-                                    text = "FAST LOGIN REQUIRED",
-                                    fontSize = 11.sp,
+                                    text = "LOGIN REQUIRED",
+                                    fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White,
                                     textAlign = TextAlign.Center
                                 )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "Please log in or register on the game page below. Once logged in, the tool will automatically sync and display real-time predictions.",
+                                    fontSize = 10.sp,
+                                    color = Color.LightGray,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(horizontal = 8.dp)
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                CircularProgressIndicator(
+                                    color = Color(0xFFFF3333),
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp
+                                )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = "Log in or register on the game page below, or bypass to preview predictions instantly.",
-                                    fontSize = 9.sp,
-                                    color = Color.Gray,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(horizontal = 2.dp)
+                                    text = "WAITING FOR USER LOGIN...",
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.Gray
                                 )
-                                Spacer(modifier = Modifier.height(10.dp))
-                                Button(
-                                    onClick = {
-                                        bypassLogin = true
-                                        Toast.makeText(context, "Fast Login Bypass Enabled!", Toast.LENGTH_SHORT).show()
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF3333)),
-                                    shape = RoundedCornerShape(8.dp),
-                                    modifier = Modifier.fillMaxWidth(),
-                                    contentPadding = PaddingValues(vertical = 8.dp)
-                                ) {
-                                    Text("⚡ FAST LOGIN BYPASS", fontSize = 10.sp, fontWeight = FontWeight.Black)
-                                }
                             } else if (!effectiveHackActive) {
                                 // CASE B: Logged in but Hack is Locked
                                 Icon(

@@ -96,9 +96,6 @@ object ApiRepository {
 
     // --- Set Prediction on Server ---
     suspend fun setPredictionOnServer(context: Context, number: Int): Boolean {
-        val session = SessionManager(context)
-        if (!session.isAdminMode) return true // Protect: Only Admin can set on server
-
         return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             try {
                 val url = "https://yaarwins.xyz/admi907/itachi_musp_set.php"

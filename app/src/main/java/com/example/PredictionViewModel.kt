@@ -99,13 +99,9 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
             // 5. Start countdown (handles fetching on new period changes)
             startCountdown(userId)
             
-            // 6. If hack is active, perform initial prediction generation & setting (Admin) or fetch (Viewer)
+            // 6. If hack is active, perform initial prediction generation & setting
             if (_hackActive.value) {
-                if (isAdmin) {
-                    generateAndSetPrediction(userId)
-                } else {
-                    fetchPrediction(userId)
-                }
+                generateAndSetPrediction(userId)
             }
             
             _isLoading.value = false
@@ -169,11 +165,9 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
                     if (_hackActive.value) {
                         // Clear old prediction so UI shows loading state
                         _prediction.value = null
-                        // Generate and set the prediction exactly once in background IO thread (Admin only)
-                        if (session.isAdminMode) {
-                            launch(Dispatchers.IO) {
-                                generateAndSetPrediction(userId)
-                            }
+                        // Generate and set the prediction exactly once in background IO thread
+                        launch(Dispatchers.IO) {
+                            generateAndSetPrediction(userId)
                         }
                     }
                 }
@@ -387,8 +381,8 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
             isCurrentPredictionFromServer = true // Successfully fetched from server!
             _errorMessage.value = null
         } else {
-            // No prediction on server yet. Wait for it!
-            _prediction.value = null
+            // No prediction on server yet. Automatically generate and set one!
+            generateAndSetPrediction(userId)
         }
     }
 
