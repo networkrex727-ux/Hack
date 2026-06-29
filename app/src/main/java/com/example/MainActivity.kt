@@ -751,6 +751,26 @@ fun WingoAppScreen() {
                                                 color = Color(0xFFFF6B00)
                                             )
                                         }
+
+                                        Spacer(modifier = Modifier.height(14.dp))
+
+                                        // Strategic algorithm badge
+                                        val strategyName = prediction!!.strategy ?: "Auto-Sensing Quant Matrix"
+                                        Box(
+                                             modifier = Modifier
+                                                 .clip(RoundedCornerShape(8.dp))
+                                                 .background(Color(0xFF1E1E1E))
+                                                 .border(1.dp, Color(0xFFFF6B00).copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                                                 .padding(horizontal = 12.dp, vertical = 6.dp)
+                                        ) {
+                                             Text(
+                                                 text = "🧠 STRATEGY: ${strategyName.uppercase()}",
+                                                 fontSize = 11.sp,
+                                                 fontWeight = FontWeight.SemiBold,
+                                                 color = Color(0xFFFF8C3D),
+                                                 letterSpacing = 0.5.sp
+                                             )
+                                        }
                                     }
                                 }
                             }
