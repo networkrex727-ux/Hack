@@ -79,18 +79,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        val session = SessionManager(applicationContext)
-        if (session.isAdminMode) {
-            try {
-                kotlinx.coroutines.runBlocking {
-                    kotlinx.coroutines.withTimeoutOrNull(3000) {
-                        ApiRepository.unsetPredictionOnServer(applicationContext)
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
     }
 }
 
