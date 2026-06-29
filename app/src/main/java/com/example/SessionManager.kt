@@ -18,10 +18,15 @@ class SessionManager(context: Context) {
         const val KEY_BASE_URL = "base_url"
         const val KEY_PERIOD_OFFSET = "period_offset"
         const val KEY_TIME_OFFSET = "time_offset"
+        const val KEY_IS_ADMIN_MODE = "is_admin_mode"
         
         const val DEFAULT_WEBSITE_URL = "https://yaarwins.xyz/"
         const val DEFAULT_BASE_URL = "https://yaarwins.xyz/admin90/"
     }
+
+    var isAdminMode: Boolean
+        get() = prefs.getBoolean(KEY_IS_ADMIN_MODE, false)
+        set(value) = prefs.edit().putBoolean(KEY_IS_ADMIN_MODE, value).apply()
 
     var userId: String
         get() = prefs.getString(KEY_USER_ID, "") ?: ""

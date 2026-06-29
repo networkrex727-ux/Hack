@@ -84,9 +84,13 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
             // 5. Start countdown (handles fetching on new period changes)
             startCountdown(userId)
             
-            // 6. If hack is active, perform initial prediction generation & setting
+            // 6. If hack is active, perform initial prediction generation & setting (Admin) or fetch (Viewer)
             if (_hackActive.value) {
-                generateAndSetPrediction(userId)
+                if (session.isAdminMode) {
+                    generateAndSetPrediction(userId)
+                } else {
+                    fetchPrediction(userId)
+                }
             }
             
             _isLoading.value = false
@@ -149,10 +153,19 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
                     if (_hackActive.value) {
                         // Clear old prediction so UI shows loading state
                         _prediction.value = null
-                        // Generate and set the prediction exactly once in background IO thread
-                        launch(Dispatchers.IO) {
-                            generateAndSetPrediction(userId)
+                        // Generate and set the prediction exactly once in background IO thread (Admin only)
+                        if (session.isAdminMode) {
+                            launch(Dispatchers.IO) {
+                                generateAndSetPrediction(userId)
+                            }
                         }
+                    }
+                }
+
+                // If viewer and hack is active and prediction is null, fetch from server
+                if (_hackActive.value && !session.isAdminMode && _prediction.value == null && newPeriodId.isNotEmpty()) {
+                    launch(Dispatchers.IO) {
+                        fetchPrediction(userId)
                     }
                 }
                 
@@ -344,8 +357,12 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
                 _errorMessage.value = null
                 // Allow generating prediction upon activation even if we previously skipped it
                 lastGeneratedPeriodId = null
-                // Set and post prediction immediately
-                generateAndSetPrediction(userId)
+                // Set and post prediction immediately (Admin) or fetch (Viewer)
+                if (session.isAdminMode) {
+                    generateAndSetPrediction(userId)
+                } else {
+                    fetchPrediction(userId)
+                }
             } else {
                 val dep = ApiRepository.checkDeposit(context, userId)
                 _depositInfo.value = dep
@@ -377,5 +394,10 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
     override fun onCleared() {
         super.onCleared()
         countdownJob?.cancel()
+        if (session.isAdminMode) {
+            viewModelScope.launch(Dispatchers.IO) {
+                ApiRepository.unsetPredictionOnServer(context)
+            }
+        }
     }
 }

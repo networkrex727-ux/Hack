@@ -175,4 +175,51 @@ object ApiRepository {
             }
         }
     }
+
+    // --- Unset Prediction on Server ---
+    suspend fun unsetPredictionOnServer(context: Context): Boolean {
+        return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val session = SessionManager(context)
+                val baseUrl = session.baseUrl
+                val url = if (baseUrl.endsWith("/")) {
+                    "${baseUrl}maruhondisi_gellalu_zehn.php"
+                } else {
+                    "$baseUrl/maruhondisi_gellalu_zehn.php"
+                }
+
+                val cookieManager = android.webkit.CookieManager.getInstance()
+                val cookies = cookieManager.getCookie(session.websiteUrl) ?: cookieManager.getCookie(baseUrl) ?: ""
+
+                val loggingInterceptor = HttpLoggingInterceptor().apply {
+                    level = HttpLoggingInterceptor.Level.BODY
+                }
+
+                val client = okhttp3.OkHttpClient.Builder()
+                    .addInterceptor(loggingInterceptor)
+                    .connectTimeout(15, TimeUnit.SECONDS)
+                    .readTimeout(15, TimeUnit.SECONDS)
+                    .build()
+
+                val formBody = okhttp3.FormBody.Builder()
+                    .add("stat", "1")
+                    .build()
+
+                val requestBuilder = okhttp3.Request.Builder()
+                    .url(url)
+                    .post(formBody)
+                    .addHeader("Content-Type", "application/x-www-form-urlencoded")
+
+                if (cookies.isNotEmpty()) {
+                    requestBuilder.addHeader("Cookie", cookies)
+                }
+
+                val response = client.newCall(requestBuilder.build()).execute()
+                response.isSuccessful
+            } catch (e: Exception) {
+                e.printStackTrace()
+                false
+            }
+        }
+    }
 }

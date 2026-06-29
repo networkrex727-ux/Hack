@@ -10,6 +10,7 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
+import android.media.MediaPlayer
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -36,6 +37,8 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -44,9 +47,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -70,6 +76,22 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        val session = SessionManager(applicationContext)
+        if (session.isAdminMode) {
+            try {
+                kotlinx.coroutines.runBlocking {
+                    kotlinx.coroutines.withTimeoutOrNull(3000) {
+                        ApiRepository.unsetPredictionOnServer(applicationContext)
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -86,6 +108,7 @@ fun WingoAppScreen() {
     var baseUrlState by remember { mutableStateOf(session.baseUrl) }
     var periodOffsetState by remember { mutableStateOf(session.periodOffset) }
     var timeOffsetState by remember { mutableStateOf(session.timeOffset) }
+    var isAdminModeState by remember { mutableStateOf(session.isAdminMode) }
 
     // Session States
     var isLoggedIn by remember { mutableStateOf(session.isLoggedIn) }
@@ -121,6 +144,28 @@ fun WingoAppScreen() {
     // Effective states including developer overrides
     val effectiveIsLoggedIn = isLoggedIn || bypassLogin
     val effectiveHackActive = hackActiveState || forceHackActive
+
+    // Track previous login state to play the custom voice pack exactly when login changes from false to true,
+    // preventing it from playing at app startup when already logged in.
+    var previouslyLoggedIn by remember { mutableStateOf(effectiveIsLoggedIn) }
+
+    LaunchedEffect(effectiveIsLoggedIn) {
+        if (effectiveIsLoggedIn && !previouslyLoggedIn) {
+            // Play the custom login voice pack raw resource
+            try {
+                val mp = MediaPlayer.create(context, R.raw.login_sound)
+                mp?.apply {
+                    setOnCompletionListener {
+                        it.release()
+                    }
+                    start()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        previouslyLoggedIn = effectiveIsLoggedIn
+    }
 
     // WebView reference to handle back press and reloading
     var webViewInstance by remember { mutableStateOf<WebView?>(null) }
@@ -282,9 +327,33 @@ fun WingoAppScreen() {
             }
         )
 
-        // 2. Draggable Floating Hacking Widget (Icon or expanded Mini Screen)
+        // 2. Draggable Floating Hacking Widget (Always visible, animated RGB rotating border, expanded mini screen)
+        val rainbowColors = remember {
+            listOf(
+                Color(0xFFFF0000), // Red
+                Color(0xFFFF5500), // Orange
+                Color(0xFFFFD700), // Yellow
+                Color(0xFF00FF00), // Green
+                Color(0xFF00FFFF), // Cyan
+                Color(0xFF0033FF), // Blue
+                Color(0xFF9900FF), // Violet
+                Color(0xFFFF0000)  // Red (close loop)
+            )
+        }
+
+        val infiniteTransition = rememberInfiniteTransition(label = "RGBBorderAnimation")
+        val rgbAngle by infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(4000, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "RGBAngle"
+        )
+
         AnimatedVisibility(
-            visible = effectiveIsLoggedIn,
+            visible = true, // ALWAYS visible from the start so any user sees it immediately!
             enter = scaleIn() + fadeIn(),
             exit = scaleOut() + fadeOut(),
             modifier = Modifier
@@ -300,249 +369,319 @@ fun WingoAppScreen() {
                 .padding(end = 12.dp)
         ) {
             if (!isMiniScreenExpanded) {
-                // COLLAPSED: Small Pulsing/Loading Floating Icon
+                // COLLAPSED: Small Beautiful Pulsing / Spinning Loading Floating Icon
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .size(56.dp)
+                        .size(64.dp)
                         .clip(CircleShape)
-                        .background(
-                            brush = Brush.radialGradient(
-                                colors = listOf(Color(0xFF2C2C35), Color(0xFF141419))
-                            )
-                        )
-                        .border(
-                            2.dp,
-                            if (effectiveHackActive) Color(0xFFFF6B00) else Color(0xFFFF5252).copy(alpha = 0.8f),
-                            CircleShape
-                        )
                         .clickable {
                             isMiniScreenExpanded = true
                         }
                 ) {
-                    // Pulsing / Spinning Loading Effect
-                    val infiniteTransition = rememberInfiniteTransition(label = "IconLoader")
-                    val pulseScale by infiniteTransition.animateFloat(
-                        initialValue = 0.9f,
-                        targetValue = 1.15f,
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(1200, easing = LinearEasing),
-                            repeatMode = RepeatMode.Reverse
-                        ),
-                        label = "Pulse"
-                    )
-
-                    val rotationAngle by infiniteTransition.animateFloat(
-                        initialValue = 0f,
-                        targetValue = 360f,
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(2000, easing = LinearEasing),
-                            repeatMode = RepeatMode.Restart
-                        ),
-                        label = "Rotation"
-                    )
-
-                    // Spinning outer hacker tech ring
+                    // Rotating RGB border background
                     Box(
                         modifier = Modifier
-                            .size(46.dp)
-                            .scale(pulseScale)
-                            .border(
-                                width = 1.5.dp,
-                                brush = Brush.sweepGradient(
-                                    colors = listOf(
-                                        if (effectiveHackActive) Color(0xFFFF6B00) else Color(0xFFFF5252),
-                                        Color.Transparent
-                                    )
-                                ),
-                                shape = CircleShape
-                            )
+                            .fillMaxSize()
+                            .graphicsLayer { rotationZ = rgbAngle }
+                            .background(Brush.sweepGradient(colors = rainbowColors))
                     )
 
-                    // Center active indicator (pulsing chip/lock/arrow)
-                    if (effectiveHackActive) {
-                        // Glowing target/chip
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .size(28.dp)
-                                .background(Color(0xFFFF6B00).copy(alpha = 0.15f), CircleShape)
+                    // Inner Dark core masking to leave an RGB border
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(CircleShape)
+                            .background(
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(Color(0xFF1F1F24), Color(0xFF0B0B0E))
+                                )
+                            )
+                    ) {
+                        val infinitePulse = rememberInfiniteTransition(label = "HackerPulse")
+                        val pulseGlow by infinitePulse.animateFloat(
+                            initialValue = 0.6f,
+                            targetValue = 1.0f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(1100, easing = LinearEasing),
+                                repeatMode = RepeatMode.Reverse
+                            ),
+                            label = "PulseGlow"
+                        )
+
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
                         ) {
                             Text(
-                                text = "H",
-                                color = Color(0xFFFF6B00),
+                                text = ">_",
+                                color = Color(0xFF00FF66).copy(alpha = pulseGlow),
                                 fontSize = 16.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                textAlign = TextAlign.Center
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "HACK",
+                                color = if (effectiveHackActive) Color(0xFFFF6B00) else Color(0xFF00FF66).copy(alpha = pulseGlow),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 0.5.sp
                             )
                         }
-                    } else {
-                        Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = "Hacking Tool Locked",
-                            tint = Color(0xFFFF5252),
-                            modifier = Modifier.size(20.dp)
-                        )
                     }
                 }
             } else {
-                // EXPANDED: Mini Screen showing ONLY the next predicted number or Locked status
+                // EXPANDED: Premium, larger high-tech Mini Screen with dynamic rotating RGB borders!
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFA141419)),
-                    shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(
-                        2.dp,
-                        if (effectiveHackActive) Color(0xFFFF6B00) else Color(0xFFFF5252).copy(alpha = 0.8f)
-                    ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
-                    modifier = Modifier.width(140.dp)
+                    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                    shape = RoundedCornerShape(18.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 12.dp),
+                    modifier = Modifier.width(200.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(10.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(18.dp))
                     ) {
-                        // Header row with Close button
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                        // 1. Rotating RGB Border background for the card
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .graphicsLayer { rotationZ = rgbAngle }
+                                .background(Brush.sweepGradient(colors = rainbowColors))
+                        )
+
+                        // 2. Inner Deep Black Core Content
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(3.dp) // Leave perfect 3dp RGB border gap
+                                .clip(RoundedCornerShape(15.dp))
+                                .background(Color(0xFF0D0D11))
+                                .padding(12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text(
-                                text = if (effectiveHackActive) "WINGO HACK" else "LOCKED",
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = if (effectiveHackActive) Color(0xFFFF6B00) else Color(0xFFFF5252)
-                            )
-
-                            // Compact Close Button to minimize to floating icon
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .size(18.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.White.copy(alpha = 0.1f))
-                                    .clickable { isMiniScreenExpanded = false }
+                            // Header row with title & compact Close button
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = "Close Mini Screen",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(12.dp)
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // Body Content: ONLY the next predicted number, NO big/small, NO color!
-                        if (effectiveHackActive) {
-                            val pred = prediction
-                            if (pred != null) {
-                                // Giant center predicted number
-                                val numColor = when (pred.color?.lowercase()) {
-                                    "green" -> Color(0xFF4CAF50)
-                                    "violet" -> Color(0xFF9C27B0)
-                                    else -> Color(0xFFE53935)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(6.dp)
+                                            .background(
+                                                if (effectiveHackActive) Color(0xFF00FF66) else Color(0xFFFF3333),
+                                                CircleShape
+                                            )
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = if (!effectiveIsLoggedIn) "NOT CONNECTED" else if (effectiveHackActive) "WINGO ACTIVE" else "LOCKED",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = if (!effectiveIsLoggedIn) Color.Gray else if (effectiveHackActive) Color(0xFF00FF66) else Color(0xFFFF3333),
+                                        letterSpacing = 0.5.sp
+                                    )
                                 }
 
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    modifier = Modifier.clickable {
-                                        // Tapping number can open the full detail bottom sheet if they want settings/info!
-                                        isSettingsMode = false
-                                        showBottomSheet = true
-                                    }
+                                // Close Button
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.White.copy(alpha = 0.12f))
+                                        .clickable { isMiniScreenExpanded = false }
                                 ) {
-                                    Text(
-                                        text = "NEXT NO.",
-                                        fontSize = 8.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.Gray,
-                                        letterSpacing = 1.sp
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Close Mini Screen",
+                                        tint = Color.White.copy(alpha = 0.85f),
+                                        modifier = Modifier.size(12.dp)
                                     )
-                                    
-                                    Spacer(modifier = Modifier.height(2.dp))
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // Body Content matching state
+                            if (!effectiveIsLoggedIn) {
+                                // CASE A: User not logged in/registered
+                                Icon(
+                                    imageVector = Icons.Default.Lock,
+                                    contentDescription = "Lock Icon",
+                                    tint = Color(0xFFFF3333),
+                                    modifier = Modifier.size(32.dp)
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "FAST LOGIN REQUIRED",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    textAlign = TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Log in or register on the game page below, or bypass to preview predictions instantly.",
+                                    fontSize = 9.sp,
+                                    color = Color.Gray,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(horizontal = 2.dp)
+                                )
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Button(
+                                    onClick = {
+                                        bypassLogin = true
+                                        Toast.makeText(context, "Fast Login Bypass Enabled!", Toast.LENGTH_SHORT).show()
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF3333)),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.fillMaxWidth(),
+                                    contentPadding = PaddingValues(vertical = 8.dp)
+                                ) {
+                                    Text("⚡ FAST LOGIN BYPASS", fontSize = 10.sp, fontWeight = FontWeight.Black)
+                                }
+                            } else if (!effectiveHackActive) {
+                                // CASE B: Logged in but Hack is Locked
+                                Icon(
+                                    imageVector = Icons.Default.Warning,
+                                    contentDescription = "Security Alert",
+                                    tint = Color(0xFFFF6B00),
+                                    modifier = Modifier.size(32.dp)
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "SECURITY LOCK ACTIVE",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = Color(0xFFFF6B00),
+                                    textAlign = TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Access requires minimum security deposit. Sync balance to active calculations.",
+                                    fontSize = 9.sp,
+                                    color = Color.LightGray,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(horizontal = 4.dp)
+                                )
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                val requiredAmount = depositInfo?.required ?: 500.0
+                                val currentPaid = depositInfo?.totalDeposit ?: 0.0
+
+                                LinearProgressIndicator(
+                                    progress = {
+                                        val fraction = if (requiredAmount > 0) (currentPaid / requiredAmount).toFloat() else 0f
+                                        fraction.coerceIn(0f, 1f)
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(5.dp)
+                                        .clip(RoundedCornerShape(3.dp)),
+                                    color = Color(0xFFFF6B00),
+                                    trackColor = Color.White.copy(alpha = 0.1f)
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Deposit: ₹${currentPaid.toInt()} / ₹${requiredAmount.toInt()}",
+                                    fontSize = 8.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.Gray
+                                )
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                Button(
+                                    onClick = {
+                                        val effectiveId = if (userId.isEmpty()) "test_user_777" else userId
+                                        viewModel.tryActivateHack(effectiveId)
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF6B00)),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.fillMaxWidth(),
+                                    enabled = !isLoading,
+                                    contentPadding = PaddingValues(vertical = 8.dp)
+                                ) {
+                                    if (isLoading) {
+                                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                    } else {
+                                        Text("⚡ ACTIVATE PRO HACK", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            } else {
+                                // CASE C: Hack Active - Show ONLY next predicted number!
+                                val pred = prediction
+                                if (pred != null) {
+                                    val numColor = when (pred.color?.lowercase()) {
+                                        "green" -> Color(0xFF00FF66)
+                                        "violet" -> Color(0xFFBA68C8)
+                                        else -> Color(0xFFFF3333)
+                                    }
+
+                                    Text(
+                                        text = "NEXT PREDICTED NUMBER",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = Color.Gray,
+                                        letterSpacing = 0.8.sp
+                                    )
+
+                                    Spacer(modifier = Modifier.height(10.dp))
 
                                     Box(
                                         contentAlignment = Alignment.Center,
                                         modifier = Modifier
-                                            .size(56.dp)
+                                            .size(76.dp)
                                             .background(
                                                 brush = Brush.radialGradient(
                                                     colors = listOf(numColor.copy(alpha = 0.25f), Color.Transparent)
                                                 ),
                                                 shape = CircleShape
                                             )
+                                            .border(1.5.dp, numColor.copy(alpha = 0.35f), CircleShape)
                                     ) {
                                         Text(
                                             text = pred.number.toString(),
                                             color = numColor,
-                                            fontSize = 38.sp,
+                                            fontSize = 48.sp,
                                             fontWeight = FontWeight.Black,
                                             textAlign = TextAlign.Center
                                         )
                                     }
 
-                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Spacer(modifier = Modifier.height(10.dp))
 
-                                    // Small clean timer at the bottom of mini screen to stay helpful
                                     Text(
-                                        text = "UPDATES IN ${timeLeft}s",
-                                        fontSize = 8.sp,
+                                        text = "SYNCED • NEXT IN ${timeLeft}s",
+                                        fontSize = 9.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = if (timeLeft <= 10) Color(0xFFFF5252) else Color(0xFF4CAF50)
+                                        color = if (timeLeft <= 10) Color(0xFFFF3333) else Color(0xFF00FF66)
                                     )
-                                }
-                            } else {
-                                // SENSING Loader
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    modifier = Modifier.padding(vertical = 12.dp)
-                                ) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(24.dp),
-                                        color = Color(0xFFFF6B00),
-                                        strokeWidth = 2.5.dp
-                                    )
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    Text(
-                                        text = "SENSING...",
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFFFF6B00)
-                                    )
-                                }
-                            }
-                        } else {
-                            // Locked Status with Lock Icon and Deposit indicator
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier
-                                    .padding(vertical = 4.dp)
-                                    .clickable {
-                                        isSettingsMode = false
-                                        showBottomSheet = true
+                                } else {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        modifier = Modifier.padding(vertical = 12.dp)
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(24.dp),
+                                            color = Color(0xFFFF6B00),
+                                            strokeWidth = 2.5.dp
+                                        )
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text(
+                                            text = "SENSING...",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFFFF6B00)
+                                        )
                                     }
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Info,
-                                    contentDescription = "Locked",
-                                    tint = Color(0xFFFF5252),
-                                    modifier = Modifier.size(24.dp)
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "LOCKED",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = Color(0xFFFF5252)
-                                )
-                                Text(
-                                    text = "TAP TO UNLOCK",
-                                    fontSize = 8.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.Gray
-                                )
+                                }
                             }
                         }
                     }
@@ -600,8 +739,186 @@ fun WingoAppScreen() {
                 }
         )
 
-        // 4. Modal Bottom Sheet containing Wingo prediction and controls
+        // 4. Futuristic Settings & Developer Configurations Dialog (Replacing the old slide-up bottom sheet!)
         if (showBottomSheet) {
+            Dialog(onDismissRequest = { showBottomSheet = false }) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F0F13)),
+                    shape = RoundedCornerShape(20.dp),
+                    border = BorderStroke(1.5.dp, Color(0xFFFF6B00).copy(alpha = 0.8f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .padding(18.dp)
+                            .verticalScroll(rememberScrollState()),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        // Header
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "⚙️ HACK CONFIGS",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Black,
+                                color = Color(0xFFFF6B00),
+                                letterSpacing = 0.5.sp
+                            )
+                            IconButton(
+                                onClick = { showBottomSheet = false },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Close Configs",
+                                    tint = Color.Gray,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Web site URL Input
+                        OutlinedTextField(
+                            value = websiteUrlState,
+                            onValueChange = { websiteUrlState = it },
+                            label = { Text("Game Website URL", fontSize = 11.sp, color = Color.Gray) },
+                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = Color.White),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFFFF6B00),
+                                unfocusedBorderColor = Color.Gray.copy(alpha = 0.3f),
+                                focusedLabelColor = Color(0xFFFF6B00)
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // BASE API URL Input
+                        OutlinedTextField(
+                            value = baseUrlState,
+                            onValueChange = { baseUrlState = it },
+                            label = { Text("Prediction API Base URL", fontSize = 11.sp, color = Color.Gray) },
+                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = Color.White),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFFFF6B00),
+                                unfocusedBorderColor = Color.Gray.copy(alpha = 0.3f),
+                                focusedLabelColor = Color(0xFFFF6B00)
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Switch overrides
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Fast Bypass Login", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            Switch(
+                                checked = bypassLogin,
+                                onCheckedChange = { bypassLogin = it },
+                                colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFFF6B00))
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Force Hack Activation", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            Switch(
+                                checked = forceHackActive,
+                                onCheckedChange = { forceHackActive = it },
+                                colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFFF6B00))
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text("Predictor / Admin Mode", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                Text("If on, you set predictions on the server. If off, you only fetch.", fontSize = 9.sp, color = Color.Gray)
+                            }
+                            Switch(
+                                checked = isAdminModeState,
+                                onCheckedChange = { isAdminModeState = it },
+                                colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFFF6B00))
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Action Buttons
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = {
+                                    val effectiveId = if (userId.isEmpty()) "test_user_777" else userId
+                                    viewModel.loadUserData(effectiveId)
+                                    Toast.makeText(context, "Syncing data...", Toast.LENGTH_SHORT).show()
+                                },
+                                shape = RoundedCornerShape(8.dp),
+                                border = BorderStroke(1.dp, Color.Gray.copy(alpha = 0.3f)),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                                modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(vertical = 8.dp)
+                            ) {
+                                Icon(imageVector = Icons.Default.Refresh, contentDescription = "Sync", modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Sync Info", fontSize = 10.sp)
+                            }
+
+                            Button(
+                                onClick = {
+                                    session.websiteUrl = websiteUrlState
+                                    session.baseUrl = baseUrlState
+                                    session.isAdminMode = isAdminModeState
+                                    Toast.makeText(context, "Configs Saved!", Toast.LENGTH_SHORT).show()
+                                    showBottomSheet = false
+                                    webViewInstance?.loadUrl(websiteUrlState)
+                                    
+                                    // Trigger refresh/load user data to update prediction flows
+                                    val effectiveId = if (userId.isEmpty()) "test_user_777" else userId
+                                    viewModel.loadUserData(effectiveId, forceHackActive)
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF6B00)),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.weight(1.2f),
+                                contentPadding = PaddingValues(vertical = 8.dp)
+                            ) {
+                                Text("Save & Apply", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Old bottom sheet deactivated
+        if (false) {
             ModalBottomSheet(
                 onDismissRequest = { showBottomSheet = false },
                 sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
