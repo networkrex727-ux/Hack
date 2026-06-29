@@ -21,7 +21,7 @@ class SessionManager(context: Context) {
         const val KEY_IS_ADMIN_MODE = "is_admin_mode"
         
         const val DEFAULT_WEBSITE_URL = "https://yaarwins.xyz/"
-        const val DEFAULT_BASE_URL = "https://yaarwins.xyz/admin90/"
+        const val DEFAULT_BASE_URL = "https://yaarwins.xyz/admi907/"
     }
 
     var isAdminMode: Boolean

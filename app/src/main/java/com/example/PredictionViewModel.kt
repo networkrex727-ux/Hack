@@ -46,6 +46,7 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
 
     private var countdownJob: Job? = null
     private var predictionPeriodId: String? = null
+    private var isCurrentPredictionFromServer: Boolean = false
     private val fetchLock = Mutex()
     private var lastGeneratedPeriodId: String? = null
     private val recentSizes = mutableListOf<String>()
@@ -164,6 +165,7 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
                 // If period ID changed, set the new prediction exactly ONCE!
                 if (newPeriodId.isNotEmpty() && newPeriodId != lastPeriodId) {
                     lastPeriodId = newPeriodId
+                    isCurrentPredictionFromServer = false // Reset tracking flag for new period
                     if (_hackActive.value) {
                         // Clear old prediction so UI shows loading state
                         _prediction.value = null
@@ -176,10 +178,13 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
                     }
                 }
 
-                // If viewer and hack is active and prediction is null, fetch from server
-                if (_hackActive.value && !session.isAdminMode && _prediction.value == null && newPeriodId.isNotEmpty()) {
-                    launch(Dispatchers.IO) {
-                        fetchPrediction(userId)
+                // If hack is active, fetch periodically from the server to check for any updates
+                // (e.g. if set via Termux curl or admin panel)
+                if (_hackActive.value && newPeriodId.isNotEmpty()) {
+                    if (!isCurrentPredictionFromServer && (_prediction.value == null || _timeLeft.value % 2 == 0)) {
+                        launch(Dispatchers.IO) {
+                            fetchPrediction(userId)
+                        }
                     }
                 }
                 
@@ -312,6 +317,28 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
             // Lock this period immediately
             lastGeneratedPeriodId = currentPeriodId
 
+            // Check if server already has a prediction set (e.g. via Termux curl)
+            val fetched = ApiRepository.getPrediction(context, userId)
+            if (fetched != null) {
+                val num = fetched.number
+                val finalColor = when (num) {
+                    0, 5 -> "violet"
+                    1, 3, 7, 9 -> "green"
+                    else -> "red"
+                }
+                val finalSize = if (num >= 5) "big" else "small"
+                _prediction.value = PredictionData(
+                    number = num,
+                    color = finalColor,
+                    size = finalSize,
+                    strategy = fetched.strategy ?: "Decrypted Neural Feed"
+                )
+                predictionPeriodId = currentPeriodId
+                isCurrentPredictionFromServer = true
+                _errorMessage.value = null
+                return
+            }
+
             val lastNum = _prediction.value?.number
             val nextPrediction = calculateStrategicPrediction(currentPeriodId, lastNum)
 
@@ -327,6 +354,7 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
             // Show this prediction in our app's UI instantly
             _prediction.value = nextPrediction
             predictionPeriodId = currentPeriodId
+            isCurrentPredictionFromServer = true
             _errorMessage.value = null
         }
     }
@@ -335,8 +363,8 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
         val currentPeriodId = _currentPeriod.value
         if (currentPeriodId.isEmpty()) return
 
-        // If we already have a locked prediction for the current period, do not fetch a new one!
-        if (predictionPeriodId == currentPeriodId && _prediction.value != null) {
+        // If we already have a real server prediction for this period, do not fetch again
+        if (predictionPeriodId == currentPeriodId && isCurrentPredictionFromServer) {
             return
         }
 
@@ -345,14 +373,36 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
             _prediction.value = null
         }
 
-        // To prevent 1 lakh users from making separate HTTP requests to the server,
-        // we calculate the prediction locally and deterministically using the period ID as a seed.
-        // This ensures every single user's device calculates and shows the EXACT same prediction at the exact same second,
-        // with ZERO network traffic or server load!
-        val localPrediction = calculateStrategicPrediction(currentPeriodId, null)
-        _prediction.value = localPrediction
-        predictionPeriodId = currentPeriodId
-        _errorMessage.value = null
+        // Try to fetch from the server first so that any set prediction via curl/termux is displayed instantly
+        val fetched = ApiRepository.getPrediction(context, userId)
+        if (fetched != null) {
+            val num = fetched.number
+            val finalColor = when (num) {
+                0, 5 -> "violet"
+                1, 3, 7, 9 -> "green"
+                else -> "red"
+            }
+            val finalSize = if (num >= 5) "big" else "small"
+            _prediction.value = PredictionData(
+                number = num,
+                color = finalColor,
+                size = finalSize,
+                strategy = fetched.strategy ?: "Decrypted Neural Feed"
+            )
+            predictionPeriodId = currentPeriodId
+            isCurrentPredictionFromServer = true // Successfully fetched from server!
+            _errorMessage.value = null
+        } else {
+            // No prediction on server yet.
+            // If we don't have a prediction at all for this period, use local fallback
+            if (predictionPeriodId != currentPeriodId || _prediction.value == null) {
+                val fallback = calculateStrategicPrediction(currentPeriodId, null)
+                _prediction.value = fallback
+                predictionPeriodId = currentPeriodId
+                isCurrentPredictionFromServer = false // Not from server, just local fallback
+                _errorMessage.value = null
+            }
+        }
     }
 
     fun tryActivateHack(userId: String) {
