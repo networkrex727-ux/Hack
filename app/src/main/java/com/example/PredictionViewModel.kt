@@ -58,40 +58,27 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
         viewModelScope.launch {
             _isLoading.value = true
             
-            val isAdmin = session.isAdminMode
-            
             // 1. Balance
-            val bal = if (isAdmin) ApiRepository.getBalance(context, userId) else 3000.0
+            val bal = session.getBalance(userId)
             _balance.value = bal
             
-            // 2. Hack status
-            val status = if (isAdmin) ApiRepository.getHackStatus(context, userId) else null
+            // 2. Deposit Info
+            val required = 500.0 // Minimum ₹500 required to unlock Wingo prediction
+            val currentPaid = session.getTotalDeposit(userId)
+            val remaining = (required - currentPaid).coerceAtLeast(0.0)
+            val unlocked = currentPaid >= required
             
-            // Auto activation rule: if they have a positive balance (they deposited money), auto-activate!
-            val autoActivate = (bal > 0.0)
-            if (isAdmin && autoActivate && status?.hackActive != 1) {
-                // Call server activation in background to sync state
-                launch(Dispatchers.IO) {
-                    ApiRepository.activateHack(context, userId)
-                }
-            }
+            _depositInfo.value = DepositCheckResponse(
+                status = "success",
+                required = required,
+                totalDeposit = currentPaid,
+                remaining = remaining,
+                unlocked = unlocked
+            )
             
-            // Check local persistence session.hackActive as well to keep viewers unlocked
-            _hackActive.value = (status?.hackActive == 1) || forceHackActive || autoActivate || session.hackActive
-            
-            // 3. Deposit info
-            if (isAdmin) {
-                _depositInfo.value = ApiRepository.checkDeposit(context, userId)
-            } else {
-                // For viewers, return a mock/unlocked deposit status to reflect their deposit history perfectly
-                _depositInfo.value = DepositCheckResponse(
-                    status = "success",
-                    required = 3000.0,
-                    totalDeposit = 3000.0,
-                    remaining = 0.0,
-                    unlocked = true
-                )
-            }
+            // 3. Hack Active Status (Only active if unlocked, or forceHackActive, or session.hackActive)
+            val isHackActive = unlocked || forceHackActive || session.hackActive
+            _hackActive.value = isHackActive
             
             // 4. Period calculation
             updatePeriod()
@@ -100,7 +87,7 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
             startCountdown(userId)
             
             // 6. If hack is active, perform initial prediction generation & setting
-            if (_hackActive.value) {
+            if (isHackActive) {
                 generateAndSetPrediction(userId)
             }
             
@@ -303,8 +290,8 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
         if (currentPeriodId.isEmpty()) return
 
         fetchLock.withLock {
-            // If we already set prediction for this period, do not do it again
-            if (lastGeneratedPeriodId == currentPeriodId) {
+            // If we already set prediction for this period and have it in state, do not do it again
+            if (lastGeneratedPeriodId == currentPeriodId && _prediction.value != null) {
                 return
             }
 
@@ -391,36 +378,18 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
         viewModelScope.launch {
             _isLoading.value = true
             
-            if (session.isAdminMode) {
-                val success = ApiRepository.activateHack(context, userId)
-                val hasBalance = (_balance.value > 0.0)
-                if (success || hasBalance) {
-                    session.hackActive = true
-                    _hackActive.value = true
-                    _errorMessage.value = null
-                    // Allow generating prediction upon activation even if we previously skipped it
-                    lastGeneratedPeriodId = null
-                    generateAndSetPrediction(userId)
-                } else {
-                    val dep = ApiRepository.checkDeposit(context, userId)
-                    _depositInfo.value = dep
-                    val remainingAmount = dep?.remaining ?: 0.0
-                    _errorMessage.value = "Deposit ₹${String.format("%.0f", remainingAmount)} more to activate"
-                }
-            } else {
-                // For viewers, activate instantly and save locally so they never get locked out again!
+            val totalDeposit = session.getTotalDeposit(userId)
+            val required = 500.0
+            if (totalDeposit >= required) {
                 session.hackActive = true
                 _hackActive.value = true
                 _errorMessage.value = null
-                _depositInfo.value = DepositCheckResponse(
-                    status = "success",
-                    required = 3000.0,
-                    totalDeposit = 3000.0,
-                    remaining = 0.0,
-                    unlocked = true
-                )
+                // Allow generating prediction upon activation even if we previously skipped it
                 lastGeneratedPeriodId = null
-                fetchPrediction(userId)
+                generateAndSetPrediction(userId)
+            } else {
+                val remaining = required - totalDeposit
+                _errorMessage.value = "Deposit ₹${String.format("%.0f", remaining)} more to activate"
             }
             _isLoading.value = false
         }
@@ -429,23 +398,25 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
     fun refreshBalance(userId: String) {
         if (userId.isEmpty()) return
         viewModelScope.launch {
-            if (session.isAdminMode) {
-                val bal = ApiRepository.getBalance(context, userId)
-                _balance.value = bal
-                if (bal > 0.0) {
-                    session.hackActive = true
-                    _hackActive.value = true
-                    launch(Dispatchers.IO) {
-                        ApiRepository.activateHack(context, userId)
-                    }
-                }
-            } else {
-                // For viewers, since they have deposited, we show a nice Rs 3,000 balance matching the screenshot
-                _balance.value = 3000.0
-                session.hackActive = true
-                _hackActive.value = true
-            }
+            loadUserData(userId)
         }
+    }
+
+    fun getDepositLogs(userId: String): List<DepositLog> {
+        return session.getDepositLogs(userId)
+    }
+
+    fun addDepositLog(userId: String, amount: Double, utr: String) {
+        val formatter = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
+        val dateStr = formatter.format(java.util.Date())
+        val log = DepositLog(
+            amount = amount,
+            utr = utr,
+            timestamp = dateStr,
+            status = "SUCCESS"
+        )
+        session.addDepositLog(userId, log)
+        loadUserData(userId)
     }
 
     fun clearError() {

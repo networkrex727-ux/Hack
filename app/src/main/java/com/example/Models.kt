@@ -60,6 +60,14 @@ data class WingoPeriod(
 )
 
 @JsonClass(generateAdapter = true)
+data class DepositLog(
+    val amount: Double,
+    val utr: String,
+    val timestamp: String,
+    val status: String = "SUCCESS"
+)
+
+@JsonClass(generateAdapter = true)
 data class ActionResponse(
     val status: String,
     val message: String? = null

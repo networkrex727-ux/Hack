@@ -105,6 +105,11 @@ fun WingoAppScreen() {
     // Bottom Sheet State
     var showBottomSheet by remember { mutableStateOf(false) }
     var isSettingsMode by remember { mutableStateOf(false) }
+    
+    // Deposit Log Dialog States
+    var showDepositDialog by remember { mutableStateOf(false) }
+    var depositAmountInput by remember { mutableStateOf("500") }
+    var depositUtrInput by remember { mutableStateOf("") }
 
     // Floating Widget Drag States
     var floatingYOffset by remember { mutableStateOf(0f) }
@@ -136,20 +141,30 @@ fun WingoAppScreen() {
     // Track previous login state to play the custom voice pack exactly when login changes from false to true,
     // preventing it from playing at app startup when already logged in.
     var previouslyLoggedIn by remember { mutableStateOf(effectiveIsLoggedIn) }
+    var activeMediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
+    var lastVoicePlayTime by remember { mutableStateOf(0L) }
 
     LaunchedEffect(effectiveIsLoggedIn) {
+        val currentTime = System.currentTimeMillis()
         if (effectiveIsLoggedIn && !previouslyLoggedIn) {
-            // Play the custom login voice pack raw resource
-            try {
-                val mp = MediaPlayer.create(context, R.raw.login_sound)
-                mp?.apply {
-                    setOnCompletionListener {
-                        it.release()
+            if (currentTime - lastVoicePlayTime > 10000) { // 10 seconds cooldown
+                lastVoicePlayTime = currentTime
+                try {
+                    activeMediaPlayer?.release()
+                    val mp = MediaPlayer.create(context.applicationContext, R.raw.login_sound)
+                    activeMediaPlayer = mp
+                    mp?.apply {
+                        setOnCompletionListener {
+                            it.release()
+                            if (activeMediaPlayer == it) {
+                                activeMediaPlayer = null
+                            }
+                        }
+                        start()
                     }
-                    start()
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
             }
         }
         previouslyLoggedIn = effectiveIsLoggedIn
@@ -263,12 +278,22 @@ fun WingoAppScreen() {
                                             var extractedUid = payload.id || payload.user_id || payload.uid || uId;
                                             if (extractedUid) {
                                                 AndroidBridge.onLogin(extractedUid.toString());
+                                            } else if (uId) {
+                                                AndroidBridge.onLogin(uId);
+                                            } else {
+                                                AndroidBridge.onLogout();
                                             }
                                         } catch(e) {
-                                            if (uId) AndroidBridge.onLogin(uId);
+                                            if (uId) {
+                                                AndroidBridge.onLogin(uId);
+                                            } else {
+                                                AndroidBridge.onLogout();
+                                            }
                                         }
                                     } else if (uId) {
                                         AndroidBridge.onLogin(uId);
+                                    } else {
+                                        AndroidBridge.onLogout();
                                     }
                                 })();
                             """.trimIndent()
@@ -425,7 +450,7 @@ fun WingoAppScreen() {
                     colors = CardDefaults.cardColors(containerColor = Color.Transparent),
                     shape = RoundedCornerShape(18.dp),
                     elevation = CardDefaults.cardElevation(defaultElevation = 12.dp),
-                    modifier = Modifier.width(280.dp)
+                    modifier = Modifier.width(340.dp)
                 ) {
                     Box(
                         contentAlignment = Alignment.Center,
@@ -585,21 +610,38 @@ fun WingoAppScreen() {
 
                                 Spacer(modifier = Modifier.height(10.dp))
 
-                                Button(
-                                    onClick = {
-                                        val effectiveId = if (userId.isEmpty()) "test_user_777" else userId
-                                        viewModel.tryActivateHack(effectiveId)
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF6B00)),
-                                    shape = RoundedCornerShape(8.dp),
+                                Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    enabled = !isLoading,
-                                    contentPadding = PaddingValues(vertical = 8.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    if (isLoading) {
-                                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                                    } else {
-                                        Text("⚡ ACTIVATE PRO HACK", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    Button(
+                                        onClick = {
+                                            val effectiveId = if (userId.isEmpty()) "test_user_777" else userId
+                                            viewModel.tryActivateHack(effectiveId)
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF6B00)),
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier.weight(1f),
+                                        enabled = !isLoading,
+                                        contentPadding = PaddingValues(vertical = 8.dp)
+                                    ) {
+                                        if (isLoading) {
+                                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                        } else {
+                                            Text("⚡ ACTIVATE", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+
+                                    Button(
+                                        onClick = {
+                                            showDepositDialog = true
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier.weight(1.2f),
+                                        contentPadding = PaddingValues(vertical = 8.dp)
+                                    ) {
+                                        Text("➕ SUBMIT LOG", fontSize = 10.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
                             } else {
@@ -1312,21 +1354,202 @@ fun WingoAppScreen() {
 
                                     Spacer(modifier = Modifier.height(16.dp))
 
-                                    // Activate Button
-                                    Button(
-                                        onClick = {
-                                            val effectiveId = if (userId.isEmpty()) "test_user_777" else userId
-                                            viewModel.tryActivateHack(effectiveId)
-                                        },
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF6B00)),
-                                        shape = RoundedCornerShape(12.dp),
+                                    // Side by Side action buttons
+                                    Row(
                                         modifier = Modifier.fillMaxWidth(),
-                                        enabled = !isLoading
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
-                                        if (isLoading) {
-                                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp))
-                                        } else {
-                                            Text("⚡ ACTIVATE HACK", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                        Button(
+                                            onClick = {
+                                                val effectiveId = if (userId.isEmpty()) "test_user_777" else userId
+                                                viewModel.tryActivateHack(effectiveId)
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF6B00)),
+                                            shape = RoundedCornerShape(12.dp),
+                                            modifier = Modifier.weight(1f),
+                                            enabled = !isLoading
+                                        ) {
+                                            if (isLoading) {
+                                                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp))
+                                            } else {
+                                                Text("⚡ ACTIVATE HACK", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                            }
+                                        }
+
+                                        Button(
+                                            onClick = {
+                                                showDepositDialog = true
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                                            shape = RoundedCornerShape(12.dp),
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Text("➕ SUBMIT LOG", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(20.dp))
+
+                                    // Deposit History List Section
+                                    Text(
+                                        text = "📜 YOUR DEPOSIT LOGS",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFFF8C3D),
+                                        modifier = Modifier.align(Alignment.Start)
+                                    )
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    val effectiveIdForLogs = if (userId.isEmpty()) "test_user_777" else userId
+                                    val logs = viewModel.getDepositLogs(effectiveIdForLogs)
+
+                                    if (logs.isEmpty()) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .background(Color.White.copy(alpha = 0.03f), RoundedCornerShape(8.dp))
+                                                .padding(12.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = "No deposit logs found. Submit a deposit log to sync.",
+                                                fontSize = 10.sp,
+                                                color = Color.Gray,
+                                                textAlign = TextAlign.Center
+                                            )
+                                        }
+                                    } else {
+                                        Column(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            logs.take(4).forEach { log ->
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(8.dp))
+                                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                                     horizontalArrangement = Arrangement.SpaceBetween,
+                                                     verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Column {
+                                                        Text("₹${String.format("%.0f", log.amount)}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                                        Text("UTR: ${log.utr}", fontSize = 9.sp, color = Color.Gray)
+                                                        Text(log.timestamp, fontSize = 8.sp, color = Color.DarkGray)
+                                                    }
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .clip(RoundedCornerShape(4.dp))
+                                                            .background(Color(0xFF4CAF50).copy(alpha = 0.15f))
+                                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                    ) {
+                                                        Text(
+                                                            text = "🟢 APPROVED",
+                                                            color = Color(0xFF4CAF50),
+                                                            fontSize = 8.sp,
+                                                            fontWeight = FontWeight.Bold
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // Deposit dialog definition popup
+                                    if (showDepositDialog) {
+                                        androidx.compose.ui.window.Dialog(onDismissRequest = { showDepositDialog = false }) {
+                                            Card(
+                                                colors = CardDefaults.cardColors(containerColor = Color(0xFF16161A)),
+                                                shape = RoundedCornerShape(18.dp),
+                                                border = BorderStroke(1.dp, Color(0xFFFF6B00).copy(alpha = 0.8f)),
+                                                modifier = Modifier.fillMaxWidth().padding(16.dp)
+                                            ) {
+                                                Column(
+                                                    modifier = Modifier.padding(18.dp),
+                                                    horizontalAlignment = Alignment.CenterHorizontally
+                                                ) {
+                                                    Text(
+                                                        text = "💸 SUBMIT DEPOSIT LOG",
+                                                        fontWeight = FontWeight.Black,
+                                                        fontSize = 15.sp,
+                                                        color = Color(0xFFFF6B00)
+                                                    )
+                                                    Spacer(modifier = Modifier.height(12.dp))
+                                                    Text(
+                                                        text = "Enter your deposit details manually to sync your game account balance and unlock the premium predictions instantly.",
+                                                        fontSize = 11.sp,
+                                                        color = Color.LightGray,
+                                                        textAlign = TextAlign.Center
+                                                    )
+                                                    Spacer(modifier = Modifier.height(16.dp))
+
+                                                    OutlinedTextField(
+                                                        value = depositAmountInput,
+                                                        onValueChange = { depositAmountInput = it },
+                                                        label = { Text("Deposit Amount (₹)", color = Color.Gray, fontSize = 11.sp) },
+                                                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = Color.White),
+                                                        colors = OutlinedTextFieldDefaults.colors(
+                                                            focusedBorderColor = Color(0xFFFF6B00),
+                                                            unfocusedBorderColor = Color.Gray.copy(alpha = 0.3f),
+                                                            focusedLabelColor = Color(0xFFFF6B00)
+                                                        ),
+                                                        modifier = Modifier.fillMaxWidth()
+                                                    )
+                                                    Spacer(modifier = Modifier.height(10.dp))
+
+                                                    OutlinedTextField(
+                                                        value = depositUtrInput,
+                                                        onValueChange = { depositUtrInput = it },
+                                                        label = { Text("UTR / Transaction ID (12 digits)", color = Color.Gray, fontSize = 11.sp) },
+                                                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = Color.White),
+                                                        colors = OutlinedTextFieldDefaults.colors(
+                                                            focusedBorderColor = Color(0xFFFF6B00),
+                                                            unfocusedBorderColor = Color.Gray.copy(alpha = 0.3f),
+                                                            focusedLabelColor = Color(0xFFFF6B00)
+                                                        ),
+                                                        modifier = Modifier.fillMaxWidth()
+                                                    )
+                                                    Spacer(modifier = Modifier.height(20.dp))
+
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                                    ) {
+                                                        OutlinedButton(
+                                                            onClick = { showDepositDialog = false },
+                                                            modifier = Modifier.weight(1f),
+                                                            border = BorderStroke(1.dp, Color.Gray.copy(alpha = 0.4f)),
+                                                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                                                        ) {
+                                                            Text("Cancel", fontSize = 11.sp)
+                                                        }
+
+                                                        Button(
+                                                            onClick = {
+                                                                val amt = depositAmountInput.toDoubleOrNull() ?: 0.0
+                                                                if (amt <= 0) {
+                                                                    Toast.makeText(context, "Please enter a valid amount!", Toast.LENGTH_SHORT).show()
+                                                                    return@Button
+                                                                }
+                                                                if (depositUtrInput.trim().length < 6) {
+                                                                    Toast.makeText(context, "Please enter a valid Transaction/UTR ID!", Toast.LENGTH_SHORT).show()
+                                                                    return@Button
+                                                                }
+                                                                val effectiveId = if (userId.isEmpty()) "test_user_777" else userId
+                                                                viewModel.addDepositLog(effectiveId, amt, depositUtrInput.trim())
+                                                                Toast.makeText(context, "Deposit Log added! Balance Synced!", Toast.LENGTH_LONG).show()
+                                                                showDepositDialog = false
+                                                                depositUtrInput = ""
+                                                            },
+                                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF6B00)),
+                                                            modifier = Modifier.weight(1.2f)
+                                                        ) {
+                                                            Text("Submit Log", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                        }
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }

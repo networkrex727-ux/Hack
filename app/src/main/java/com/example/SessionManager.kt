@@ -60,5 +60,53 @@ class SessionManager(context: Context) {
         get() = prefs.getInt(KEY_TIME_OFFSET, 0)
         set(value) = prefs.edit().putInt(KEY_TIME_OFFSET, value).apply()
 
+    fun getBalance(userId: String): Double {
+        return prefs.getFloat("balance_$userId", 0.0f).toDouble()
+    }
+
+    fun setBalance(userId: String, balance: Double) {
+        prefs.edit().putFloat("balance_$userId", balance.toFloat()).apply()
+    }
+
+    fun getTotalDeposit(userId: String): Double {
+        return prefs.getFloat("total_deposit_$userId", 0.0f).toDouble()
+    }
+
+    fun setTotalDeposit(userId: String, total: Double) {
+        prefs.edit().putFloat("total_deposit_$userId", total.toFloat()).apply()
+    }
+
+    fun getDepositLogs(userId: String): List<DepositLog> {
+        val raw = prefs.getString("deposit_logs_$userId", "") ?: ""
+        if (raw.isEmpty()) return emptyList()
+        return raw.split(";;;").mapNotNull {
+            val parts = it.split("|||")
+            if (parts.size >= 4) {
+                DepositLog(
+                    amount = parts[0].toDoubleOrNull() ?: 0.0,
+                    utr = parts[1],
+                    timestamp = parts[2],
+                    status = parts[3]
+                )
+            } else null
+        }
+    }
+
+    fun addDepositLog(userId: String, log: DepositLog) {
+        val currentLogs = getDepositLogs(userId).toMutableList()
+        currentLogs.add(0, log)
+        val serialized = currentLogs.joinToString(";;;") {
+            "${it.amount}|||${it.utr}|||${it.timestamp}|||${it.status}"
+        }
+        prefs.edit().putString("deposit_logs_$userId", serialized).apply()
+        
+        // Update balance and total deposits
+        val newTotalDeposit = getTotalDeposit(userId) + log.amount
+        setTotalDeposit(userId, newTotalDeposit)
+        
+        val newBalance = getBalance(userId) + log.amount
+        setBalance(userId, newBalance)
+    }
+
     fun clear() = prefs.edit().clear().apply()
 }
