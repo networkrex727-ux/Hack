@@ -321,19 +321,16 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
             val fetched = ApiRepository.getPrediction(context, userId)
             if (fetched != null) {
                 val num = fetched.number
-                val finalColor = when (num) {
-                    0, 5 -> "violet"
-                    1, 3, 7, 9 -> "green"
-                    else -> "red"
-                }
-                val finalSize = if (num >= 5) "big" else "small"
+                val serverPeriodId = fetched.periodId ?: currentPeriodId
                 _prediction.value = PredictionData(
                     number = num,
-                    color = finalColor,
-                    size = finalSize,
-                    strategy = fetched.strategy ?: "Decrypted Neural Feed"
+                    color = fetched.color,
+                    size = fetched.size,
+                    strategy = fetched.strategy ?: "Server Decrypted Feed",
+                    periodId = serverPeriodId
                 )
-                predictionPeriodId = currentPeriodId
+                _currentPeriod.value = serverPeriodId
+                predictionPeriodId = serverPeriodId
                 isCurrentPredictionFromServer = true
                 _errorMessage.value = null
                 return
@@ -348,7 +345,7 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
                 recentSizes.removeAt(0)
             }
 
-            // Post this prediction to the server (which uses Cookie from CookieManager)
+            // Post this prediction to the server
             val success = ApiRepository.setPredictionOnServer(context, nextPrediction.number)
             
             // Show this prediction in our app's UI instantly
@@ -364,7 +361,7 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
         if (currentPeriodId.isEmpty()) return
 
         // If we already have a real server prediction for this period, do not fetch again
-        if (predictionPeriodId == currentPeriodId && isCurrentPredictionFromServer) {
+        if (predictionPeriodId == currentPeriodId && _prediction.value != null) {
             return
         }
 
@@ -373,35 +370,25 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
             _prediction.value = null
         }
 
-        // Try to fetch from the server first so that any set prediction via curl/termux is displayed instantly
+        // Try to fetch from the server
         val fetched = ApiRepository.getPrediction(context, userId)
         if (fetched != null) {
             val num = fetched.number
-            val finalColor = when (num) {
-                0, 5 -> "violet"
-                1, 3, 7, 9 -> "green"
-                else -> "red"
-            }
-            val finalSize = if (num >= 5) "big" else "small"
+            val serverPeriodId = fetched.periodId ?: currentPeriodId
             _prediction.value = PredictionData(
                 number = num,
-                color = finalColor,
-                size = finalSize,
-                strategy = fetched.strategy ?: "Decrypted Neural Feed"
+                color = fetched.color,
+                size = fetched.size,
+                strategy = fetched.strategy ?: "Server Decrypted Feed",
+                periodId = serverPeriodId
             )
-            predictionPeriodId = currentPeriodId
+            _currentPeriod.value = serverPeriodId
+            predictionPeriodId = serverPeriodId
             isCurrentPredictionFromServer = true // Successfully fetched from server!
             _errorMessage.value = null
         } else {
-            // No prediction on server yet.
-            // If we don't have a prediction at all for this period, use local fallback
-            if (predictionPeriodId != currentPeriodId || _prediction.value == null) {
-                val fallback = calculateStrategicPrediction(currentPeriodId, null)
-                _prediction.value = fallback
-                predictionPeriodId = currentPeriodId
-                isCurrentPredictionFromServer = false // Not from server, just local fallback
-                _errorMessage.value = null
-            }
+            // No prediction on server yet. Wait for it!
+            _prediction.value = null
         }
     }
 

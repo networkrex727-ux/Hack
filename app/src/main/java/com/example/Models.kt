@@ -15,7 +15,8 @@ data class PredictionData(
     val number: Int,       // 0-9
     val color: String,     // "red", "green", "violet"
     val size: String,       // "big", "small"
-    val strategy: String? = null
+    val strategy: String? = null,
+    val periodId: String? = null
 )
 
 @JsonClass(generateAdapter = true)

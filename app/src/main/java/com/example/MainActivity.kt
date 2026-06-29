@@ -116,8 +116,8 @@ fun WingoAppScreen() {
     var isDeveloperMode by remember { mutableStateOf(false) }
 
     // Bypasses / Overrides for Developer Testing
-    var bypassLogin by remember { mutableStateOf(false) }
-    var forceHackActive by remember { mutableStateOf(false) }
+    var bypassLogin by remember { mutableStateOf(true) }
+    var forceHackActive by remember { mutableStateOf(true) }
 
     // Live Data flows from ViewModel
     val currentPeriod by viewModel.currentPeriod.collectAsState()
@@ -806,55 +806,6 @@ fun WingoAppScreen() {
                             modifier = Modifier.fillMaxWidth()
                         )
 
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        // Switch overrides
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("Fast Bypass Login", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                            Switch(
-                                checked = bypassLogin,
-                                onCheckedChange = { bypassLogin = it },
-                                colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFFF6B00))
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("Force Hack Activation", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                            Switch(
-                                checked = forceHackActive,
-                                onCheckedChange = { forceHackActive = it },
-                                colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFFF6B00))
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text("Predictor / Admin Mode", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                                Text("If on, you set predictions on the server. If off, you only fetch.", fontSize = 9.sp, color = Color.Gray)
-                            }
-                            Switch(
-                                checked = isAdminModeState,
-                                onCheckedChange = { isAdminModeState = it },
-                                colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFFF6B00))
-                            )
-                        }
-
                         Spacer(modifier = Modifier.height(16.dp))
 
                         // Action Buttons
@@ -1071,58 +1022,7 @@ fun WingoAppScreen() {
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // DEVELOPER OVERRIDES/BYPASS PANEL
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.05f)),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(
-                                    text = "🛠️ Developer Testing Tools",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFFFFB74D),
-                                    modifier = Modifier.padding(bottom = 8.dp)
-                                )
 
-                                // Bypass Login Switch
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text("Force Login Status", fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                                        Text("Simulates a valid logged-in user session", fontSize = 10.sp, color = Color.Gray)
-                                    }
-                                    Switch(
-                                        checked = bypassLogin,
-                                        onCheckedChange = { bypassLogin = it },
-                                        colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFFF6B00))
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                // Force Hack Active Switch
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text("Bypass Security Deposit Lock", fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                                        Text("Directly unlock and preview Wingo predictions", fontSize = 10.sp, color = Color.Gray)
-                                    }
-                                    Switch(
-                                        checked = forceHackActive,
-                                        onCheckedChange = { forceHackActive = it },
-                                        colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFFF6B00))
-                                    )
-                                }
-                            }
-                        }
 
                     } else {
                         // === STANDARD OVERLAY SCREEN ===
