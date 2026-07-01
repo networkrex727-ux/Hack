@@ -12,6 +12,7 @@ import android.webkit.WebViewClient
 import android.widget.Toast
 import android.media.MediaPlayer
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -65,7 +66,16 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.light(
+                android.graphics.Color.TRANSPARENT,
+                android.graphics.Color.TRANSPARENT
+            ),
+            navigationBarStyle = SystemBarStyle.light(
+                android.graphics.Color.TRANSPARENT,
+                android.graphics.Color.TRANSPARENT
+            )
+        )
         setContent {
             MyApplicationTheme {
                 Surface(
@@ -200,12 +210,18 @@ fun WingoAppScreen() {
     }
 
     // Main layout
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+    ) {
         
-        // 1. WebView filling the screen completely edge-to-edge
+        // 1. WebView filling the screen safely between status bar and navigation bar
         AndroidView(
             modifier = Modifier
-                .fillMaxSize(),
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding(),
             factory = { ctx ->
                 WebView(ctx).apply {
                     webViewInstance = this
@@ -214,8 +230,8 @@ fun WingoAppScreen() {
                         javaScriptEnabled = true
                         domStorageEnabled = true
                         databaseEnabled = true
-                        useWideViewPort = false
-                        loadWithOverviewMode = false
+                        useWideViewPort = true
+                        loadWithOverviewMode = true
                         mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                         cacheMode = WebSettings.LOAD_DEFAULT
                         mediaPlaybackRequiresUserGesture = false
