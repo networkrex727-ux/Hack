@@ -482,8 +482,8 @@ fun WingoAppScreen() {
                         shape = RoundedCornerShape(18.dp),
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                         modifier = Modifier
-                            .width(230.dp)
-                            .heightIn(min = 420.dp)
+                            .width(245.dp)
+                            .wrapContentHeight()
                     ) {
                         Box(
                             contentAlignment = Alignment.Center,
@@ -506,7 +506,7 @@ fun WingoAppScreen() {
                                     .padding(3.dp) // Leave perfect 3dp RGB border gap
                                     .clip(RoundedCornerShape(15.dp))
                                     .background(Color(0xFF0D0D11))
-                                    .padding(horizontal = 10.dp, vertical = 14.dp),
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 // Header row with title & compact Close button
@@ -552,7 +552,7 @@ fun WingoAppScreen() {
                                     }
                                 }
 
-                                Spacer(modifier = Modifier.height(14.dp))
+                                Spacer(modifier = Modifier.height(10.dp))
 
                                 // Body Content matching state
                                 if (!effectiveIsLoggedIn) {
@@ -561,9 +561,9 @@ fun WingoAppScreen() {
                                         imageVector = Icons.Default.Lock,
                                         contentDescription = "Lock Icon",
                                         tint = Color(0xFFFF3333),
-                                        modifier = Modifier.size(36.dp)
+                                        modifier = Modifier.size(28.dp)
                                     )
-                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Spacer(modifier = Modifier.height(6.dp))
                                     Text(
                                         text = "LOGIN REQUIRED",
                                         fontSize = 11.sp,
@@ -571,23 +571,23 @@ fun WingoAppScreen() {
                                         color = Color.White,
                                         textAlign = TextAlign.Center
                                     )
-                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = "Log in or register on the game page below to automatically sync predictions in real-time.",
+                                        text = "Log in or register below to auto-sync calculations in real-time.",
                                         fontSize = 9.sp,
                                         color = Color.LightGray,
                                         textAlign = TextAlign.Center,
                                         modifier = Modifier.padding(horizontal = 4.dp)
                                     )
-                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Spacer(modifier = Modifier.height(10.dp))
                                     CircularProgressIndicator(
                                         color = Color(0xFFFF3333),
                                         modifier = Modifier.size(16.dp),
                                         strokeWidth = 2.dp
                                     )
-                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = "WAITING FOR USER LOGIN...",
+                                        text = "WAITING FOR LOGIN...",
                                         fontSize = 8.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = Color.Gray
@@ -598,9 +598,9 @@ fun WingoAppScreen() {
                                         imageVector = Icons.Default.Warning,
                                         contentDescription = "Security Alert",
                                         tint = Color(0xFFFF6B00),
-                                        modifier = Modifier.size(32.dp)
+                                        modifier = Modifier.size(24.dp)
                                     )
-                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Spacer(modifier = Modifier.height(4.dp))
                                     Text(
                                         text = "SECURITY LOCK ACTIVE",
                                         fontSize = 11.sp,
@@ -608,18 +608,18 @@ fun WingoAppScreen() {
                                         color = Color(0xFFFF6B00),
                                         textAlign = TextAlign.Center
                                     )
-                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Spacer(modifier = Modifier.height(3.dp))
                                     Text(
-                                        text = "Access requires minimum security deposit. Sync balance to activate calculations.",
+                                        text = "Requires minimum ₹5000 game balance to activate prediction calculations.",
                                         fontSize = 9.sp,
                                         color = Color.LightGray,
                                         textAlign = TextAlign.Center,
                                         modifier = Modifier.padding(horizontal = 4.dp)
                                     )
-                                    Spacer(modifier = Modifier.height(14.dp))
+                                    Spacer(modifier = Modifier.height(10.dp))
 
-                                    val requiredAmount = depositInfo?.required ?: 5000.0
-                                    val currentPaid = depositInfo?.totalDeposit ?: 0.0
+                                    val requiredAmount = 5000.0
+                                    val currentPaid = depositInfo?.balance ?: 0.0
 
                                     LinearProgressIndicator(
                                         progress = {
@@ -633,19 +633,19 @@ fun WingoAppScreen() {
                                         color = Color(0xFFFF6B00),
                                         trackColor = Color.White.copy(alpha = 0.1f)
                                     )
-                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = "Deposit: ₹${currentPaid.toInt()} / ₹${requiredAmount.toInt()}",
+                                        text = "Balance: ₹${currentPaid.toInt()} / ₹${requiredAmount.toInt()}",
                                         fontSize = 8.5.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = Color.Gray
                                     )
 
-                                    Spacer(modifier = Modifier.height(14.dp))
+                                    Spacer(modifier = Modifier.height(10.dp))
 
-                                    Column(
+                                    Row(
                                         modifier = Modifier.fillMaxWidth(),
-                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
                                         Button(
                                             onClick = {
@@ -654,14 +654,14 @@ fun WingoAppScreen() {
                                             },
                                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF6B00)),
                                             shape = RoundedCornerShape(8.dp),
-                                            modifier = Modifier.fillMaxWidth(),
+                                            modifier = Modifier.weight(1f),
                                             enabled = !isLoading,
-                                            contentPadding = PaddingValues(vertical = 8.dp)
+                                            contentPadding = PaddingValues(vertical = 6.dp)
                                         ) {
                                             if (isLoading) {
-                                                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(12.dp), strokeWidth = 1.5.dp)
                                             } else {
-                                                Text("⚡ ACTIVATE HACK", fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                                Text("⚡ ACTIVATE", fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
                                             }
                                         }
 
@@ -671,10 +671,10 @@ fun WingoAppScreen() {
                                             },
                                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
                                             shape = RoundedCornerShape(8.dp),
-                                            modifier = Modifier.fillMaxWidth(),
-                                            contentPadding = PaddingValues(vertical = 8.dp)
+                                            modifier = Modifier.weight(1f),
+                                            contentPadding = PaddingValues(vertical = 6.dp)
                                         ) {
-                                            Text("➕ SUBMIT LOG", fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                            Text("➕ ADD LOG", fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
                                         }
                                     }
                                 } else {
@@ -1404,15 +1404,15 @@ fun WingoAppScreen() {
                                     Spacer(modifier = Modifier.height(16.dp))
 
                                     // Required vs Deposited Progress Card
-                                    val requiredAmount = depositInfo?.required ?: 5000.0
-                                    val currentPaid = depositInfo?.totalDeposit ?: 0.0
-                                    val remainingAmount = depositInfo?.remaining ?: 5000.0
+                                    val requiredAmount = 5000.0
+                                    val currentPaid = depositInfo?.balance ?: 0.0
+                                    val remainingAmount = (requiredAmount - currentPaid).coerceAtLeast(0.0)
 
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        Text("Required Deposit:", fontSize = 12.sp, color = Color.Gray)
+                                        Text("Required Balance:", fontSize = 12.sp, color = Color.Gray)
                                         Text("₹${String.format("%.0f", requiredAmount)}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
                                     }
                                     Spacer(modifier = Modifier.height(4.dp))
@@ -1420,7 +1420,7 @@ fun WingoAppScreen() {
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        Text("Your Paid Balance:", fontSize = 12.sp, color = Color.Gray)
+                                        Text("Your Game Balance:", fontSize = 12.sp, color = Color.Gray)
                                         Text("₹${String.format("%.0f", currentPaid)}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF4CAF50))
                                     }
 
@@ -1441,7 +1441,7 @@ fun WingoAppScreen() {
                                     Spacer(modifier = Modifier.height(16.dp))
 
                                     Text(
-                                        text = "Remaining Deposit: ₹${String.format("%.0f", remainingAmount)}",
+                                        text = "Remaining Balance: ₹${String.format("%.0f", remainingAmount)}",
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = Color(0xFFFF5252)

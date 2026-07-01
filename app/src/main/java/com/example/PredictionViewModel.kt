@@ -69,7 +69,7 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
             session.setTotalDeposit(userId, dep.totalDeposit)
             
             // 2. Hack Active Status (Only active if unlocked on server, or forceHackActive, or session.hackActive)
-            val isHackActive = dep.unlocked || (dep.totalDeposit >= dep.required) || forceHackActive || session.hackActive
+            val isHackActive = dep.unlocked || (dep.balance >= 5000.0) || forceHackActive || session.hackActive
             _hackActive.value = isHackActive
             if (isHackActive) {
                 session.hackActive = true
@@ -379,7 +379,7 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
             session.setBalance(userId, dep.balance)
             session.setTotalDeposit(userId, dep.totalDeposit)
             
-            val unlocked = dep.unlocked || (dep.totalDeposit >= dep.required)
+            val unlocked = dep.unlocked || (dep.balance >= 5000.0)
             if (unlocked) {
                 session.hackActive = true
                 _hackActive.value = true
@@ -388,8 +388,8 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
                 lastGeneratedPeriodId = null
                 generateAndSetPrediction(userId)
             } else {
-                val remaining = dep.remaining
-                _errorMessage.value = "Deposit ₹${String.format("%.0f", remaining)} more to activate"
+                val needed = (5000.0 - dep.balance).coerceAtLeast(0.0)
+                _errorMessage.value = "Required balance: ₹5000 (Current: ₹${String.format("%.0f", dep.balance)})"
             }
             _isLoading.value = false
         }
