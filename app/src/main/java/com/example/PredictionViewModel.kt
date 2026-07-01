@@ -391,7 +391,7 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
                 session.hackActive = false
                 _hackActive.value = false
                 val needed = (reqAmount - dep.balance).coerceAtLeast(0.0)
-                _errorMessage.value = "Required balance: ₹${String.format("%.0f", reqAmount)} (Current: ₹${String.format("%.0f", dep.balance)})"
+                _errorMessage.value = "Required balance: Rs.${String.format("%.0f", reqAmount)} (Current: Rs.${String.format("%.0f", dep.balance)})"
             }
             _isLoading.value = false
         }

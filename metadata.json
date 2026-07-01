@@ -1,5 +1,5 @@
 {
-  "name": "Wingo Prediction",
+  "name": "Yaarwin Prediction Hack",
   "description": "Wingo 30-second prediction overlay with real-time countdown, user balance tracking, and security deposit lock.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

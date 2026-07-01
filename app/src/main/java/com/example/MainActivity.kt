@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ui.theme.MyApplicationTheme
+import com.example.ui.NoInternetScreen
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -101,6 +102,9 @@ fun WingoAppScreen() {
     val session = remember { SessionManager(context) }
     val viewModel: PredictionViewModel = viewModel()
     val coroutineScope = rememberCoroutineScope()
+
+    val networkMonitor = remember { NetworkMonitor(context) }
+    val isConnected by networkMonitor.isConnected.collectAsState(initial = networkMonitor.isCurrentlyConnected())
 
     // Configuration / URL States
     var websiteUrlState by remember { mutableStateOf(session.websiteUrl) }
@@ -627,7 +631,7 @@ fun WingoAppScreen() {
                                     )
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
-                                        text = "Requires minimum ₹${(if (depInfo != null && depInfo.required > 0) depInfo.required else 5000.0).toInt()} game balance to activate prediction calculations.",
+                                        text = "Requires minimum Rs.${(if (depInfo != null && depInfo.required > 0) depInfo.required else 5000.0).toInt()} game balance to activate prediction calculations.",
                                         fontSize = 7.5.sp,
                                         color = Color.LightGray,
                                         textAlign = TextAlign.Center,
@@ -652,7 +656,7 @@ fun WingoAppScreen() {
                                     )
                                     Spacer(modifier = Modifier.height(3.dp))
                                     Text(
-                                        text = "Balance: ₹${currentPaid.toInt()} / ₹${requiredAmount.toInt()}",
+                                        text = "Balance: Rs.${currentPaid.toInt()} / Rs.${requiredAmount.toInt()}",
                                         fontSize = 7.5.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = Color.Gray
@@ -1232,7 +1236,7 @@ fun WingoAppScreen() {
                             ) {
                                 Text("MY BALANCE", fontSize = 10.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
                                 Text(
-                                    text = "₹${String.format("%.2f", balance)}",
+                                    text = "Rs.${String.format("%.2f", balance)}",
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = Color(0xFF2E7D32)
@@ -1430,7 +1434,7 @@ fun WingoAppScreen() {
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
                                         Text("Required Balance:", fontSize = 12.sp, color = Color.Gray)
-                                        Text("₹${String.format("%.0f", requiredAmount)}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                        Text("Rs.${String.format("%.0f", requiredAmount)}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
                                     }
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Row(
@@ -1438,7 +1442,7 @@ fun WingoAppScreen() {
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
                                         Text("Your Game Balance:", fontSize = 12.sp, color = Color.Gray)
-                                        Text("₹${String.format("%.0f", currentPaid)}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF4CAF50))
+                                        Text("Rs.${String.format("%.0f", currentPaid)}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF4CAF50))
                                     }
 
                                     Spacer(modifier = Modifier.height(6.dp))
@@ -1458,7 +1462,7 @@ fun WingoAppScreen() {
                                     Spacer(modifier = Modifier.height(16.dp))
 
                                     Text(
-                                        text = "Remaining Balance: ₹${String.format("%.0f", remainingAmount)}",
+                                        text = "Remaining Balance: Rs.${String.format("%.0f", remainingAmount)}",
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = Color(0xFFFF5252)
@@ -1546,7 +1550,7 @@ fun WingoAppScreen() {
                                                      verticalAlignment = Alignment.CenterVertically
                                                 ) {
                                                     Column {
-                                                        Text("₹${String.format("%.0f", log.amount)}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                                        Text("Rs.${String.format("%.0f", log.amount)}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
                                                         Text("UTR: ${log.utr}", fontSize = 9.sp, color = Color.Gray)
                                                         Text(log.timestamp, fontSize = 8.sp, color = Color.DarkGray)
                                                     }
@@ -1599,7 +1603,7 @@ fun WingoAppScreen() {
                                                     OutlinedTextField(
                                                         value = depositAmountInput,
                                                         onValueChange = { depositAmountInput = it },
-                                                        label = { Text("Deposit Amount (₹)", color = Color.Gray, fontSize = 11.sp) },
+                                                        label = { Text("Deposit Amount (Rs.)", color = Color.Gray, fontSize = 11.sp) },
                                                         textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = Color.White),
                                                         colors = OutlinedTextFieldDefaults.colors(
                                                             focusedBorderColor = Color(0xFFFF6B00),
@@ -1694,6 +1698,28 @@ fun WingoAppScreen() {
                     }
                 }
             }
+        }
+
+        AnimatedVisibility(
+            visible = !isConnected,
+            enter = fadeIn(animationSpec = tween(400)),
+            exit = fadeOut(animationSpec = tween(400))
+        ) {
+            NoInternetScreen(
+                onRetry = {
+                    val currentlyConnected = networkMonitor.isCurrentlyConnected()
+                    if (currentlyConnected) {
+                        webViewInstance?.reload()
+                        if (effectiveIsLoggedIn) {
+                            val effectiveId = if (userId.isEmpty()) "test_user_777" else userId
+                            viewModel.loadUserData(effectiveId, forceHackActive)
+                        }
+                    } else {
+                        Toast.makeText(context, "No connection detected. Please check network and try again.", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                modifier = Modifier.fillMaxSize()
+            )
         }
     }
 }
