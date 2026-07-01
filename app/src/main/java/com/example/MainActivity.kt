@@ -109,7 +109,7 @@ fun WingoAppScreen() {
     
     // Deposit Log Dialog States
     var showDepositDialog by remember { mutableStateOf(false) }
-    var depositAmountInput by remember { mutableStateOf("500") }
+    var depositAmountInput by remember { mutableStateOf("5000") }
     var depositUtrInput by remember { mutableStateOf("") }
 
     // Floating Widget Drag States
@@ -202,12 +202,10 @@ fun WingoAppScreen() {
     // Main layout
     Box(modifier = Modifier.fillMaxSize()) {
         
-        // 1. WebView filling the screen safely between status bar and navigation bar
+        // 1. WebView filling the screen completely edge-to-edge
         AndroidView(
             modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-                .navigationBarsPadding(),
+                .fillMaxSize(),
             factory = { ctx ->
                 WebView(ctx).apply {
                     webViewInstance = this
@@ -482,7 +480,7 @@ fun WingoAppScreen() {
                     Card(
                         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
                         shape = RoundedCornerShape(18.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 12.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                         modifier = Modifier
                             .width(230.dp)
                             .heightIn(min = 420.dp)
@@ -620,7 +618,7 @@ fun WingoAppScreen() {
                                     )
                                     Spacer(modifier = Modifier.height(14.dp))
 
-                                    val requiredAmount = depositInfo?.required ?: 500.0
+                                    val requiredAmount = depositInfo?.required ?: 5000.0
                                     val currentPaid = depositInfo?.totalDeposit ?: 0.0
 
                                     LinearProgressIndicator(
@@ -1406,9 +1404,9 @@ fun WingoAppScreen() {
                                     Spacer(modifier = Modifier.height(16.dp))
 
                                     // Required vs Deposited Progress Card
-                                    val requiredAmount = depositInfo?.required ?: 500.0
+                                    val requiredAmount = depositInfo?.required ?: 5000.0
                                     val currentPaid = depositInfo?.totalDeposit ?: 0.0
-                                    val remainingAmount = depositInfo?.remaining ?: 500.0
+                                    val remainingAmount = depositInfo?.remaining ?: 5000.0
 
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),

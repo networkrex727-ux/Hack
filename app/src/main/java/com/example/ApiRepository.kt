@@ -162,7 +162,7 @@ object ApiRepository {
                     val html = response.body?.string() ?: ""
                     val json = org.json.JSONObject(html)
                     val status = json.optString("status", "error")
-                    val req = json.optDouble("required", 3000.0)
+                    val req = json.optDouble("required", 5000.0)
                     val totalDeposit = json.optDouble("total_deposit", 0.0)
                     val remaining = json.optDouble("remaining", req)
                     val balance = json.optDouble("balance", 0.0)
@@ -183,9 +183,9 @@ object ApiRepository {
             // Fallback in case of error
             DepositCheckResponse(
                 status = "error",
-                required = 3000.0,
+                required = 5000.0,
                 totalDeposit = 0.0,
-                remaining = 3000.0,
+                remaining = 5000.0,
                 unlocked = false,
                 balance = 0.0
             )
