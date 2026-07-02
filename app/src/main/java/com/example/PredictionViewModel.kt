@@ -142,33 +142,24 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
                 // If period ID changed, set the new prediction exactly ONCE!
                 if (newPeriodId.isNotEmpty() && newPeriodId != lastPeriodId) {
                     lastPeriodId = newPeriodId
-                    isCurrentPredictionFromServer = false // Reset tracking flag for new period
                     if (_hackActive.value) {
                         // Clear old prediction so UI shows loading state
                         _prediction.value = null
-                        // Generate and set the prediction exactly once in background IO thread
+                        // Generate the prediction exactly once in background IO thread
                         launch(Dispatchers.IO) {
                             generateAndSetPrediction(userId)
                         }
                     }
                 }
 
-                // If hack is active, fetch periodically from the server to check for any updates
-                // (e.g. if set via Termux curl or admin panel)
-                if (_hackActive.value && newPeriodId.isNotEmpty()) {
-                    if (!isCurrentPredictionFromServer && (_prediction.value == null || _timeLeft.value % 2 == 0)) {
-                        launch(Dispatchers.IO) {
-                            fetchPrediction(userId)
-                        }
+                // If hack is active and prediction is empty, generate it locally
+                if (_hackActive.value && _prediction.value == null && newPeriodId.isNotEmpty()) {
+                    launch(Dispatchers.IO) {
+                        generateAndSetPrediction(userId)
                     }
                 }
                 
                 delay(1000L)
-                
-                // When timer reaches 0/1, wait briefly for API update
-                if (_timeLeft.value <= 1) {
-                    delay(800L) // short wait for new period to reflect on server
-                }
             }
         }
     }
@@ -292,25 +283,6 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
             // Lock this period immediately
             lastGeneratedPeriodId = currentPeriodId
 
-            // Check if server already has a prediction set (e.g. via Termux curl)
-            val fetched = ApiRepository.getPrediction(context, userId)
-            if (fetched != null) {
-                val num = fetched.number
-                val serverPeriodId = fetched.periodId ?: currentPeriodId
-                _prediction.value = PredictionData(
-                    number = num,
-                    color = fetched.color,
-                    size = fetched.size,
-                    strategy = fetched.strategy ?: "Server Decrypted Feed",
-                    periodId = serverPeriodId
-                )
-                _currentPeriod.value = serverPeriodId
-                predictionPeriodId = serverPeriodId
-                isCurrentPredictionFromServer = true
-                _errorMessage.value = null
-                return
-            }
-
             val lastNum = _prediction.value?.number
             val nextPrediction = calculateStrategicPrediction(currentPeriodId, lastNum)
 
@@ -320,51 +292,16 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
                 recentSizes.removeAt(0)
             }
 
-            // Post this prediction to the server
-            val success = ApiRepository.setPredictionOnServer(context, nextPrediction.number)
-            
             // Show this prediction in our app's UI instantly
             _prediction.value = nextPrediction
             predictionPeriodId = currentPeriodId
-            isCurrentPredictionFromServer = true
+            isCurrentPredictionFromServer = false
             _errorMessage.value = null
         }
     }
 
     suspend fun fetchPrediction(userId: String) {
-        val currentPeriodId = _currentPeriod.value
-        if (currentPeriodId.isEmpty()) return
-
-        // If we already have a real server prediction for this period, do not fetch again
-        if (predictionPeriodId == currentPeriodId && _prediction.value != null) {
-            return
-        }
-
-        // If the period has changed, clear the old prediction to show the loading spinner for the new period
-        if (predictionPeriodId != currentPeriodId) {
-            _prediction.value = null
-        }
-
-        // Try to fetch from the server
-        val fetched = ApiRepository.getPrediction(context, userId)
-        if (fetched != null) {
-            val num = fetched.number
-            val serverPeriodId = fetched.periodId ?: currentPeriodId
-            _prediction.value = PredictionData(
-                number = num,
-                color = fetched.color,
-                size = fetched.size,
-                strategy = fetched.strategy ?: "Server Decrypted Feed",
-                periodId = serverPeriodId
-            )
-            _currentPeriod.value = serverPeriodId
-            predictionPeriodId = serverPeriodId
-            isCurrentPredictionFromServer = true // Successfully fetched from server!
-            _errorMessage.value = null
-        } else {
-            // No prediction on server yet. Automatically generate and set one!
-            generateAndSetPrediction(userId)
-        }
+        generateAndSetPrediction(userId)
     }
 
     fun tryActivateHack(userId: String) {
