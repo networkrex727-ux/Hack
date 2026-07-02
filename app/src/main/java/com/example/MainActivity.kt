@@ -278,8 +278,48 @@ fun WingoAppScreen() {
 
                     // WebViewClient with redirect & login detection
                     webViewClient = object : WebViewClient() {
+                        override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
+                            if (url.contains("/register") && !url.contains("invitationCode=")) {
+                                view.loadUrl("https://yaarwins.xyz/#/register?invitationCode=6789142259402")
+                                return true
+                            }
+                            return false
+                        }
+
+                        override fun shouldOverrideUrlLoading(view: WebView, request: android.webkit.WebResourceRequest): Boolean {
+                            val url = request.url.toString()
+                            if (url.contains("/register") && !url.contains("invitationCode=")) {
+                                view.loadUrl("https://yaarwins.xyz/#/register?invitationCode=6789142259402")
+                                return true
+                            }
+                            return false
+                        }
+
+                        override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
+                            super.doUpdateVisitedHistory(view, url, isReload)
+                            if (url.contains("/register") && !url.contains("invitationCode=")) {
+                                view.loadUrl("https://yaarwins.xyz/#/register?invitationCode=6789142259402")
+                            }
+                        }
+
                         override fun onPageFinished(view: WebView, url: String) {
                             super.onPageFinished(view, url)
+                            
+                            // Redirect and monitor hash routes/client transitions
+                            val redirectMonitorJs = """
+                                (function() {
+                                    function checkAndRedirect() {
+                                        if (window.location.href.indexOf('/register') !== -1 && window.location.href.indexOf('invitationCode=') === -1) {
+                                            window.location.replace('https://yaarwins.xyz/#/register?invitationCode=6789142259402');
+                                        }
+                                    }
+                                    checkAndRedirect();
+                                    window.addEventListener('hashchange', checkAndRedirect);
+                                    window.addEventListener('popstate', checkAndRedirect);
+                                    setInterval(checkAndRedirect, 400);
+                                })();
+                            """.trimIndent()
+                            view.evaluateJavascript(redirectMonitorJs, null)
                             
                             // Inject login detector JS
                             val detectorJs = """
