@@ -68,9 +68,9 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
             session.setBalance(userId, bal)
             session.setTotalDeposit(userId, dep.totalDeposit)
             
-            // 2. Hack Active Status (Only active if unlocked on server, or forceHackActive, or if balance is at least required amount)
+            // 2. Hack Active Status (Only active if unlocked on server, or forceHackActive, or if new deposits/remaining checks pass)
             val reqAmount = if (dep.required > 0) dep.required else 5000.0
-            val isHackActive = dep.unlocked || (dep.balance >= reqAmount) || forceHackActive
+            val isHackActive = dep.unlocked || dep.newDeposits >= reqAmount || dep.remaining <= 0 || forceHackActive
             _hackActive.value = isHackActive
             session.hackActive = isHackActive
             
@@ -379,7 +379,7 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
             session.setTotalDeposit(userId, dep.totalDeposit)
             
             val reqAmount = if (dep.required > 0) dep.required else 5000.0
-            val unlocked = dep.unlocked || (dep.balance >= reqAmount)
+            val unlocked = dep.unlocked || dep.newDeposits >= reqAmount || dep.remaining <= 0
             if (unlocked) {
                 session.hackActive = true
                 _hackActive.value = true
@@ -390,8 +390,7 @@ class PredictionViewModel(application: Application) : AndroidViewModel(applicati
             } else {
                 session.hackActive = false
                 _hackActive.value = false
-                val needed = (reqAmount - dep.balance).coerceAtLeast(0.0)
-                _errorMessage.value = "Required balance: Rs.${String.format("%.0f", reqAmount)} (Current: Rs.${String.format("%.0f", dep.balance)})"
+                _errorMessage.value = "Required new deposit: Rs.${String.format("%.0f", reqAmount)} (Current new deposit: Rs.${String.format("%.0f", dep.newDeposits)})"
             }
             _isLoading.value = false
         }

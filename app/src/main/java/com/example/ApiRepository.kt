@@ -167,6 +167,8 @@ object ApiRepository {
                     val remaining = json.optDouble("remaining", req)
                     val balance = json.optDouble("balance", 0.0)
                     val unlocked = json.optBoolean("unlocked", false)
+                    val newDeposits = json.optDouble("new_deposits", 0.0)
+                    val baseline = json.optDouble("baseline", 0.0)
 
                     return@withContext DepositCheckResponse(
                         status = status,
@@ -174,7 +176,9 @@ object ApiRepository {
                         totalDeposit = totalDeposit,
                         remaining = remaining,
                         unlocked = unlocked,
-                        balance = balance
+                        balance = balance,
+                        newDeposits = newDeposits,
+                        baseline = baseline
                     )
                 }
             } catch (e: Exception) {
@@ -187,7 +191,9 @@ object ApiRepository {
                 totalDeposit = 0.0,
                 remaining = 5000.0,
                 unlocked = false,
-                balance = 0.0
+                balance = 0.0,
+                newDeposits = 0.0,
+                baseline = 0.0
             )
         }
     }

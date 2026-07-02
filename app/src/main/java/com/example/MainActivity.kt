@@ -671,7 +671,7 @@ fun WingoAppScreen() {
                                     )
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
-                                        text = "Requires minimum Rs.${(if (depInfo != null && depInfo.required > 0) depInfo.required else 5000.0).toInt()} game balance to activate prediction calculations.",
+                                        text = "Requires minimum Rs.${(if (depInfo != null && depInfo.required > 0) depInfo.required else 5000.0).toInt()} new deposit to activate prediction calculations.",
                                         fontSize = 7.5.sp,
                                         color = Color.LightGray,
                                         textAlign = TextAlign.Center,
@@ -680,7 +680,7 @@ fun WingoAppScreen() {
                                     Spacer(modifier = Modifier.height(6.dp))
 
                                     val requiredAmount = if (depInfo != null && depInfo.required > 0) depInfo.required else 5000.0
-                                    val currentPaid = depInfo?.balance ?: 0.0
+                                    val currentPaid = depInfo?.newDeposits ?: 0.0
 
                                     LinearProgressIndicator(
                                         progress = {
@@ -696,7 +696,7 @@ fun WingoAppScreen() {
                                     )
                                     Spacer(modifier = Modifier.height(3.dp))
                                     Text(
-                                        text = "Balance: Rs.${currentPaid.toInt()} / Rs.${requiredAmount.toInt()}",
+                                        text = "New Deposit: Rs.${currentPaid.toInt()} / Rs.${requiredAmount.toInt()}",
                                         fontSize = 7.5.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = Color.Gray
@@ -1466,8 +1466,8 @@ fun WingoAppScreen() {
 
                                     // Required vs Deposited Progress Card
                                     val requiredAmount = if (depInfo != null && depInfo.required > 0) depInfo.required else 5000.0
-                                    val currentPaid = depInfo?.balance ?: 0.0
-                                    val remainingAmount = (requiredAmount - currentPaid).coerceAtLeast(0.0)
+                                    val currentPaid = depInfo?.newDeposits ?: 0.0
+                                    val remainingAmount = (depInfo?.remaining ?: (requiredAmount - currentPaid)).coerceAtLeast(0.0)
 
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
@@ -1481,7 +1481,7 @@ fun WingoAppScreen() {
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        Text("Your Game Balance:", fontSize = 12.sp, color = Color.Gray)
+                                        Text("Your New Deposit:", fontSize = 12.sp, color = Color.Gray)
                                         Text("Rs.${String.format("%.0f", currentPaid)}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF4CAF50))
                                     }
 
